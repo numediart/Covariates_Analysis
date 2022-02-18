@@ -12,4 +12,4 @@ Here is the description of each covariate related to image feature:
 - Highest frequency:          Centroid of the spectral cluster of highest frequency                            
 - Maximum spectral distance:  Distance between spectral clusters of lowest and highest frequency
 
-All the computations are discribed in the [extract_cov.mat](https://github.com/numediart/Covariates_Analysis/new/main/utils/extract_cov) function.
+All the computations are discribed in the [extract_cov.mat](https://github.com/numediart/Covariates_Analysis/new/main/utils/extract_cov.m) function.
