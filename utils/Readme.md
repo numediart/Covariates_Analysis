@@ -15,10 +15,10 @@ Here is a brief description of each covariate related to image feature:
 All the computations are discribed in the [extract_cov.mat](https://github.com/numediart/Covariates_Analysis/blob/main/utils/extract_cov.m) function.
 
 ## Detailed description
+Note: Contrast, correlation, homogeneity and energy are computed through the 'graycoprops' Matlab function applied on the grayscale image. This function normalizes the gray-level co-occurrence matrix (GLCM) so that the sum of its elements is one.
+
 <ins>Entropy</ins>  
 The 'entropy' built-in Matlab function is defined as -sum(p.*log2(p)) where p contains the histogram counts returned from IMHIST function.
-
-Contrast, correlation, homogeneity and energy are computed through the 'graycoprops' Matlab function applied on the grayscale image. This function normalizes the gray-level co-occurrence matrix (GLCM) so that the sum of its elements is one.
 
 <ins>Contrast</ins>  
 The contrast is defined as the intensity contrast between a pixel and its neighbor over the whole image. Range = [0 (size(GLCM,1)-1)^2].  Contrast is 0 for a constant image.
@@ -32,4 +32,11 @@ The homogeneity is the closeness of the distribution of elements in the GLCM to 
 
 <ins>Energy</ins>  
 The energy is the summation of squared elements in the GLCM. Range = [0 1]. Energy is 1 for a constant image.
+
+<ins>Compactness</ins>  
+The compactness of a specific shape is defined as the ratio of the area of the shape to the area of a circle (the most compact shape) having the same perimeter. It is computed as follow:  
+```
+compactness = 4*pi*A/P^2;
+```
+where A is the area of the shape and P is its perimeter (here, the area of the circle is computed from its known perimeter.
 
