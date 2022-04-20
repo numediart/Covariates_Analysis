@@ -18,9 +18,18 @@ All the computations are discribed in the [extract_cov.mat](https://github.com/n
 <ins>Entropy</ins>  
 The 'entropy' built-in Matlab function is defined as -sum(p.*log2(p)) where p contains the histogram counts returned from IMHIST function.
 
+Contrast, correlation, homogeneity and energy are computed through the 'graycoprops' Matlab function applied on the grayscale image. This function normalizes the gray-level co-occurrence matrix (GLCM) so that the sum of its elements is one.
+
 <ins>Contrast</ins>  
-Contrast is computed through the 'graycoprops' Matlab function. It is defined as the intensity contrast between a pixel and its neighbor over the whole image. Range = [0 (size(GLCM,1)-1)^2].  Contrast is 0 for a constant image.
+The contrast is defined as the intensity contrast between a pixel and its neighbor over the whole image. Range = [0 (size(GLCM,1)-1)^2].  Contrast is 0 for a constant image.
 
 <ins>Correlation</ins>  
-Correlation is computed through the 'graycoprops' Matlab function. It is the statistical measure of how correlated a pixel is to its neighbor over the whole image. 
+The correlation is the statistical measure of how correlated a pixel is to its neighbor over the whole image. 
 Range = [-1 1]. Correlation is 1 or -1 for a perfectly positively or negatively correlated image. Correlation is NaN for a constant image.
+
+<ins>Homogeneity</ins>  
+The homogeneity is the closeness of the distribution of elements in the GLCM to the GLCM diagonal. Range = [0 1]. Homogeneity is 1 for a diagonal GLCM.
+
+<ins>Energy</ins>  
+The energy is the summation of squared elements in the GLCM. Range = [0 1]. Energy is 1 for a constant image.
+
