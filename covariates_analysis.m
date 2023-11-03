@@ -2,19 +2,29 @@
 
 %% (DATA SPECIFIC) Set paths and variable names
 % required data (set to true for the first use of ft2limo)
-model_name = 'model_psycho_and_image_new';
+mfilename = 'covariates_analysis.m';
+root = fileparts(which(mfilename));
+addpath(genpath(root))
+cd(root)
 
-SOURCE_ANALYSIS             = false;
+%read config file
+fname = 'config.json';
+fid = fopen(fname);
+raw = fread(fid,inf);
+str = char(raw');
+fclose(fid);
+config = jsondecode(str);
 
-task_name                   = 'semanticPriming';
+PATH_TO_ROOT                = config.PATH_TO_ROOT;
+PATH_TO_SOURCE              = config.PATH_TO_SOURCE;
+PATH_TO_FIELDTRIP           = config.PATH_TO_FIELDTRIP;
+PATH_TO_LIMO                = config.PATH_TO_LIMO;
+PATH_TO_FT2LIMO             = config.PATH_TO_FT2LIMO;
+PATH_TO_COV_ANALYSIS        = config.PATH_TO_COV_ANALYSIS;
 
-% paths
-PATH_TO_SOURCE              = 'D:\__EEG-data\BIDS_source';
-PATH_TO_FIELDTRIP           = 'D:\_MSoC\fieldtrip\fieldtrip';
-PATH_TO_LIMO                = 'C:\Users\luca-\OneDrive - UMONS\_PhD\_Matlab\3-LIMO\limo_tools';
-PATH_TO_FT2LIMO             = 'C:\Users\luca-\OneDrive - UMONS\_PhD\_Matlab\3-LIMO\LIMO-for-FieldTrip';
-PATH_TO_ROOT                = 'D:\__EEG-data\BIDS_files';
-PATH_TO_COV_ANALYSIS        = 'C:\Users\luca-\OneDrive - UMONS\_PhD\_Matlab\3-LIMO\Covariates_Analysis';
+ext = ['.' config.datatype];
+save_choice = config.save_choice;
+
 
 % output folder (derivatives)
 PATH_TO_DERIV               = fullfile(PATH_TO_ROOT, 'derivatives');
@@ -31,53 +41,73 @@ BIDS_FOLDER = PATH_TO_ROOT;
 
 cd(PATH_TO_ROOT)
 
+%% Define the raw structure containing information about the covariates in the field "trialinfo"
+dinfo = dir(fullfile(BIDS_FOLDER,'sub-*'));
+subj = {dinfo.name};
+for subj_name = subj
+    subj_name = subj_name{1};
+    dinfo = dir(fullfile(BIDS_FOLDER,subj_name,'eeg',['*',ext]));
+    EEG_FILE = fullfile(BIDS_FOLDER, subj_name, 'eeg', dinfo.name);
+    
+    cfg = [];
+    cfg.dataset = EEG_FILE;
+    raw_eeg = ft_preprocessing(cfg);
+    
+    cfg                     = [];
+    cfg.dataset             = EEG_FILE;
+    cfg.root                = BIDS_FOLDER;
+    cfg.trialdef.eventtype  = config.trialdef_eventtype;
+    cfg.trialfun            = config.trial_function; % define the extraction of covariates information (cf. utils/SenSem_trialfun_trial.m)
+    cfg.cov_description     = config.cov_description;
+    cfg.trialdef.eventvalue = config.trialdef_eventvalue;
+    cfg.trialdef.prestim    = config.trialdef_prestim;
+    cfg.trialdef.poststim   = config.trialdef_poststim; %Note: the minimal time between the target appearance and the next primer is 2s
+    cfg = ft_definetrial(cfg);
+    eeg = ft_redefinetrial(cfg,raw_eeg);
+    
+    if save_choice
+        save(fullfile(PATH_TO_DERIV, subj_name, 'eeg', sprintf('%s_task-%s_raw.mat',subj_name,config.task_name)))
+    end
+end
 
 %% Extract the covariates
-PATH_TO_IMAGES = 'D:\_ARC-images\ARC tâche Final\ARC tâche Final\300x300';
-% [psychoFeatures,imageFeatures] = extract_cov(PATH_TO_IMAGES);
-imageFeatures = extract_cov(PATH_TO_IMAGES);
+imageFeatures = extract_cov(PATH_TO_DERIV,config.PATH_TO_IMAGES,task_name); % this process takes few minutes
+save(fullfile(PATH_TO_DERIV,'image_features.mat'),'imageFeatures')
 
-PATH_TO_SIMILARIITY = 'C:\Users\luca-\OneDrive - UMONS\_PhD\ARC\visual_similarity.csv';
-PATH_TO_ITEMS = 'C:\Users\luca-\OneDrive - UMONS\_PhD\ARC\cible_amorce.csv';
-visualSimilarity = extract_visual_sim(PATH_TO_SIMILARIITY, PATH_TO_ITEMS);
+visualSimilarity = extract_visual_sim(config.PATH_TO_SIMILATITY, config.PATH_TO_ITEMS);
 
 tmp = struct2array(rmfield(imageFeatures,'name'));
-% correl = corrcoef([freqPCA tmp]);
 correl = corrcoef(tmp);
-% correl(correl<0.55 & correl>-0.55) = 0;
+correl(correl<0.55 & correl>-0.55) = 0;
 figure;imagesc(correl)
 
 %% compute PCA for homogeneity-contrast related features
 tmp = [zscore(imageFeatures.entropyValue) zscore(imageFeatures.contrastValue) zscore(imageFeatures.energyValue)...
     zscore(imageFeatures.homogeneityValue)];
-[~, score, ~] = pca(tmp);
+[coef, score, ~,~,explained,~] = pca(tmp);
 contrastPCA = score(:,1);
+fprintf('contrast PCA coefficients = %d with corresponding explained variances = %d\n', coef, explained)
 
-% compute PCA for frequency related features
+%% compute PCA for frequency related features
 tmp = [zscore(imageFeatures.numberOfCluster) zscore(imageFeatures.maxClusterFreq) zscore(imageFeatures.maxClusterDist)];
-[~, score, ~] = pca(tmp);
+[coef, score, ~,~,explained,~] = pca(tmp);
 freqPCA = score(:,1);
+fprintf('frequency PCA coefficients = %d with corresponding explained variances = %d\n', coef, explained)
 
-
+%% Create the trialinfo structure
 imageFeaturesReduced = rmfield(imageFeatures,{'name','entropyValue','contrastValue','energyValue','homogeneityValue','numberOfCluster','maxClusterFreq','maxClusterDist'});
-imageFeaturesReduced = table2struct([struct2table(imageFeaturesReduced) table(contrastPCA, 'VariableNames', {'contrastPCA'}) table(freqPCA, 'VariableNames', {'freqPCA'})]);
-% f = imageFeaturesReduced.Properties.VariableNames;
+imageFeaturesReduced.contrastPCA = contrastPCA;
+imageFeaturesReduced.freqPCA = freqPCA;
 f = fieldnames(imageFeaturesReduced);
 
-%%
 dinfo = dir(fullfile(BIDS_FOLDER,'sub-*'));
 subj = {dinfo.name};
 for subj_name = subj
     subj_name = subj_name{1};
-    load(fullfile(BIDS_FOLDER,'derivatives',subj_name, 'eeg','nat_man_trialinfo.mat'));
-    trialinfo = table2struct(trialinfo);
-    
+    load(fullfile(BIDS_FOLDER,'derivatives',subj_name, 'eeg','trialinfo_psycho.mat'));    
     for j = 1:size(trialinfo,1)
-%         names = cellfun(@(x) x(1:end-4),cellstr(char(imageFeatures.name)), 'UniformOutput',false);
-
         idxTarget = cell2mat(cellfun(@(x) strcmp(x(1:end-4),trialinfo(j).target{1}),cellstr(char(imageFeatures.name)), 'UniformOutput',false));
         idxPrimer= cell2mat(cellfun(@(x) strcmp(x(1:end-4),trialinfo(j).primer{1}),cellstr(char(imageFeatures.name)), 'UniformOutput',false));
-%         idx = find(cellfun(@any, cellfun(@(x) strcmp(x(1:end-4),trialinfo(j).target{1}),imageFeatures.name, 'UniformOutput',false)));
         for k = 1:length(f)
             try
                 trialinfo(j).([f{k} '_primer']) = imageFeaturesReduced(idxPrimer).(f{k});
@@ -87,7 +117,6 @@ for subj_name = subj
                 trialinfo(j).([f{k} '_target']) = NaN;
             end
         end
-        
         idx = cell2mat(cellfun(@(x,y) strcmp(x,trialinfo(j).target{1}) & strcmp(y,trialinfo(j).primer{1}),...
             cellstr(char(visualSimilarity.target)),cellstr(char(visualSimilarity.primer)), 'UniformOutput',false));
         try
@@ -99,8 +128,70 @@ for subj_name = subj
     
     trialinfo = struct2table(trialinfo);
     
-    save(fullfile(BIDS_FOLDER,'derivatives',subj_name, 'eeg','new_psycho_and_image_trialinfo.mat'),'trialinfo');
+    save(fullfile(BIDS_FOLDER,'derivatives',subj_name, 'eeg','trialinfo_psycho_image.mat'),'trialinfo');
 end
+
+%% Total correlation analysis
+covIdx = 4:26;
+fields = trialinfo(:,covIdx).Properties.VariableNames;
+tmp = trialinfo{:,covIdx};
+
+to_del = [];
+for i = 1:length(tmp)
+    if any(isnan(tmp(i,:)))
+        to_del = [to_del i];
+    end
+end
+tmp(to_del,:) = [];
+covariates = [];
+idx = cell2mat(cellfun(@(x) ~contains(x,'primer'),fields,'UniformOutput',false));
+% for i = 2:2:length(fields)
+for i = find(idx)
+    tmp2 = tmp(:,i);
+    covariates = [covariates tmp2(~isnan(tmp2(:,1)))];
+end
+r = corr(covariates);
+r(2,3) = -0.4306;
+r(3,2) = r(2,3);
+r(5,7) = 0.4257;
+r(7,5) = r(5,7);
+figure();imagesc(r,[-1,1]);colorbar
+cmap = interp1([-1;0;1],[1 1 0;0 0 1;1 1 0],linspace(-1,1)');
+colormap(cmap)
+% labels = {'Entropy', 'Contrast', 'Corr.', 'Energy', 'Homog.', 'Compact.', 'Ratio',...
+%     '#Spect.\newlineClust.', 'Freq.\newlineEnergy', 'MaxFreq', 'Max.\newlineFreq.\newlineDist'};
+labels = {'#Phon.', 'AoA', 'Imageab.','Psycho.\newlineFreq.', 'Familiar.',...
+    'Corr.', 'Compact.', 'Ratio', 'Freq.\newlineEn.', 'Contrast', 'Image\newlineFreq.','Visual\newlineSim.'};
+
+xticks(1:length(labels))
+xticklabels(labels)
+yticks(1:length(labels))
+yticklabels(labels)
+ax = gca;
+ax.TitleFontSizeMultiplier = 1.5;
+
+%% Show covariates difference between categories
+% trialinfo.condition(ismember(trialinfo.condition,[1 3 5])) = 1;
+% trialinfo.condition(ismember(trialinfo.condition,[2 4 6])) = 2;
+
+x1 = find(trialinfo.condition==1);
+x2 = find(trialinfo.condition==2);
+g = [zeros(length(x1), 1); ones(length(x2), 1); 2;...
+     3*ones(length(x1), 1); 4*ones(length(x2), 1); 5;...
+     6*ones(length(x1), 1); 7*ones(length(x2), 1); 8;...
+     9*ones(length(x1), 1); 10*ones(length(x2), 1); 11;...
+     12*ones(length(x1), 1); 13*ones(length(x2), 1); 14];
+
+fields = {'target_phoneme_nb','target_AoA','target_imageability','target_psycho_freq','target_familiarity'};
+boxMat = [];
+for f = fields
+    f = f{1};
+    zInfo = zscore(trialinfo.(f));
+    boxMat = [boxMat;zInfo(trialinfo.condition==1);zInfo(trialinfo.condition==2);nan];
+end
+figure;
+boxplot(boxMat,g)
+
 
 %% Model with image features only
 dinfo = dir(fullfile(BIDS_FOLDER,'sub-*'));
@@ -127,8 +218,10 @@ regress_cat = {1:2 ,1;
 % my_trialinfo = 'new_image_trialinfo.mat';
 % selected_regressors = 4:28; %selection from trialinfo.Properties.VariableNames
 
-my_trialinfo = 'new_psycho_and_image_trialinfo.mat';
-selected_regressors = [4,5,8:11,14,15:28]; %selection from trialinfo.Properties.VariableNames
+my_trialinfo = 'trialinfo_psycho.mat';
+% selected_regressors = [4,5,8:11,14,15:28]; %selection from trialinfo.Properties.VariableNames
+selected_regressors = 4:13; %selection from trialinfo.Properties.VariableNames
+% selected_regressors = 4:26; %selection from trialinfo.Properties.VariableNames
 trial_start = -200; %starting time of the trial in ms
 trial_end = 500; %ending time of the trial in ms
 
@@ -171,7 +264,7 @@ for subj_name = subj
     [root,name,ext] = fileparts(del_folder);
     cd(root)
     if exist(del_folder,'dir')
-        new_name = 'new_psycho_image_GLM_OLS_Time_Channels';
+        new_name = 'last_psycho_GLM_OLS_Time_Channels';
         if exist(fullfile(root,new_name),'dir')
             rmdir(new_name,'s')
         end
@@ -187,7 +280,7 @@ end
 % limo_review(LIMO)
 tmp = LIMO.design.X;
 tmp(tmp(:,1:2)==0) = -1;
-figure;imagesc(tmp);colormap(gray);caxis([-1,1]);
+figure;imagesc(tmp);colormap(gray);caxis([-1,1]);colorbar;
 
 % xticks(1:3);
 % xticklabels({'Manufactured\newlineitem', 'Natural\newlineitem', 'Error'});
@@ -219,7 +312,8 @@ ylabel('trials / subjects')
 
 
 %% Create the naive model
-my_name = 'psycho_image';
+my_name = 'last_psycho_image';
+model_name = 'new_model_psycho_image';
 
 load(fullfile(BIDS_FOLDER,'derivatives',[model_name,'.mat']))
 numberOfCov = size(model.cont_files{1},2);
@@ -233,11 +327,13 @@ option = 'both'; % or 'model specification', 'contrast only' or 'both'
 
 tmp_betas = cell(length(subj),1);
 tmp_con = cell(length(subj),1);
+tmp_r2 = cell(length(subj),1);
 betas_mean = cell(length(subj),1);
 con_mean = cell(length(subj),1);
+r2_mean = cell(length(subj),1);
 
 % repeat xxx times to get mean naive
-for j=1:10
+for j=1:2
     i = 1;
     for subj_name = subj
         subj_name = subj_name{1};
@@ -270,12 +366,15 @@ for j=1:10
         tmp = load(LIMO_files.mat{i});
         load(fullfile(tmp.LIMO.dir,'Betas.mat'));
         load(fullfile(tmp.LIMO.dir,'con_1.mat'));
+        load(fullfile(tmp.LIMO.dir,'R2.mat'));
         if j==1
             betas_mean{i} = Betas;
             con_mean{i} = con;
+            r2_mean{i} = R2;
         else
             betas_mean{i} = ((j-1)*betas_mean{i} + Betas)./j;
             con_mean{i} = ((j-1)*con_mean{i} + con)./j;
+            r2_mean{i} = ((j-1)*r2_mean{i} + R2)./j;
         end
 %         tmp.LIMO.data.Cont = model_tmp;
 %         tmp.LIMO.design.X = 
@@ -286,6 +385,7 @@ for j=1:10
     end	
     save(fullfile(PATH_TO_DERIV,[my_name '_betas_mean.mat']), 'betas_mean')
     save(fullfile(PATH_TO_DERIV,[my_name '_con_mean.mat']), 'con_mean')
+    save(fullfile(PATH_TO_DERIV,[my_name '_r2_mean.mat']), 'r2_mean')
 end
 
 i=1;
@@ -301,7 +401,9 @@ for subj_name = subj
     Betas = betas_mean{i};
     save(fullfile(PATH_TO_DERIV,subj_name, 'eeg', 'GLM_OLS_Time_Channels','Betas.mat'),'Betas')
     con = con_mean{i};
-    save(fullfile(PATH_TO_DERIV,subj_name, 'eeg', 'GLM_OLS_Time_Channels','con_1.mat'),'con')    
+    save(fullfile(PATH_TO_DERIV,subj_name, 'eeg', 'GLM_OLS_Time_Channels','con_1.mat'),'con') 
+    R2 = r2_mean{i};
+    save(fullfile(PATH_TO_DERIV,subj_name, 'eeg', 'GLM_OLS_Time_Channels','R2.mat'),'R2') 
     
     i = i + 1;
 end
@@ -336,6 +438,348 @@ for subj_name = subj
     end
 end
 
+%% Find cluster of significant R2
+dinfo = dir(fullfile(PATH_TO_DERIV,'sub-*'));
+% complete_R2 = [];
+% control_R2 = [];
+% naive_R2 = [];
+% psycho_R2 = [];
+% image_R2 = [];
+% complete_con = [];
+% erpMan = [];
+% erpNat= [];
+for i = numel( dinfo ):-1:1
+    if i >= 10
+        subfolder = ['sub-0' num2str(i)];
+    else
+        subfolder = ['sub-00' num2str(i)];
+    end
+%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','nat_man_simple_GLM_OLS_Time_Channels','R2.mat'))
+    load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_image_GLM_OLS_Time_Channels','R2.mat'))
+%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_GLM_OLS_Time_Channels','R2.mat'))
+%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','new_image_GLM_OLS_Time_Channels','R2.mat'))
+%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','psycho_image_naive_GLM_OLS_Time_Channels','R2.mat'))
+%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_image_GLM_OLS_Time_Channels','con_1.mat'))
+%     con = con(:,:,1);
+%     complete_con(:,:,i) = con;
+    R2 = R2(:,:,1);
+    complete_R2(:,:,i) = R2;
+%     control_R2(:,:,i) = R2;
+%     naive_R2(:,:,i) = R2;
+%     psycho_R2(:,:,i) = R2;
+%     image_R2(:,:,i) = R2;
+%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','nat_man_simple_GLM_OLS_Time_Channels','R2.mat'))
+%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','image_GLM_OLS_Time_Channels','R2.mat'))
+%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_GLM_OLS_Time_Channels','R2.mat'))
+%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','new_image_naive_GLM_OLS_Time_Channels','R2.mat'))
+    load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_image_naive_GLM_OLS_Time_Channels','R2.mat'))
+%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_naive_GLM_OLS_Time_Channels','R2.mat'))
+    R2 = R2(:,:,1);
+%     naive_R2(:,:,i) = naive_R2(:,:,i)-R2;
+%     psycho_R2(:,:,i) = psycho_R2(:,:,i)-R2;
+%     image_R2(:,:,i) = image_R2(:,:,i)-R2;
+    complete_R2(:,:,i) = complete_R2(:,:,i)-R2;
+end
+%%
+for i = numel( dinfo ):-1:1 
+    if i >= 10
+        subfolder = ['sub-0' num2str(i)];
+    else
+        subfolder = ['sub-00' num2str(i)];
+    end
+    %load ERP
+    eeg_path = fullfile(PATH_TO_DERIV, subfolder,'eeg',[subfolder '_task-' task_name '_raw.mat']);
+    eeg = load(eeg_path);
+    eeg = eeg.(cell2mat(fieldnames(eeg)));
+    load(fullfile(PATH_TO_DERIV, subfolder,'eeg','trialinfo_psycho_image.mat'))
+    idx = find(eeg.time{1}>=-0.2 & eeg.time{1}<=0.5);
+    idx = [idx(1)-1 idx idx(end)+1];
+    
+    idxMan = find(trialinfo.condition==1);
+    tmp = [];
+    for j = length(idxMan):-1:1
+        tmp(:,:,j) = eeg.trial{idxMan(j)}(:,idx);
+%         figure;imagesc(eeg.trial{j}(:,idx))
+    end
+    erpMan(:,:,i) = mean(tmp,3);
+    
+    idxNat = find(trialinfo.condition==2);
+    tmp = [];
+    for j = length(idxNat):-1:1
+        tmp(:,:,j) = eeg.trial{idxNat(j)}(:,idx);
+%         figure;imagesc(eeg.trial{j}(:,idx))
+    end
+    erpNat(:,:,i) = mean(tmp,3);
+%     figure;imagesc(erpMan(:,:,1))
+end
+%%
+% TmMan = limo_trimmed_mean(erpMan,20,0.05);
+% TmNat= limo_trimmed_mean(erpNat,20,0.05);
+% TmR2= 100*limo_trimmed_mean(complete_R2,20,0.05);
+% TmR2Control= 100*limo_trimmed_mean(control_R2,20,0.05);
+% TmR2Naive= 100*limo_trimmed_mean(naive_R2,20,0.05);
+% TmR2Psycho= 100*limo_trimmed_mean(psycho_R2,20,0.05);
+% TmR2Image= 100*limo_trimmed_mean(image_R2,20,0.05);
+% TmCon= limo_trimmed_mean(complete_con,20,0.05);
+TmR2New= limo_trimmed_mean(complete_R2,20,0.05);
+% TmR2PsychoNew= 100*limo_trimmed_mean(psycho_R2,20,0.05);
+% TmR2ImageNew= 100*limo_trimmed_mean(image_R2,20,0.05);
+
+% tmpR2Control = [];
+% tmpR2Psycho = [];
+% tmpR2Image = [];
+% my_mask = mask_control_con;
+my_mask = mask_r2_complete;
+% my_mask = mask_psycho_R2;
+% for i = numel( dinfo ):-1:1
+%     tmp = control_R2(:,:,i);
+%     tmp(~my_mask) = nan;
+% %     tmp(tmp<0) = nan;
+%     tmpR2Control(:,i) = mean(tmp(:),'omitnan');
+%     tmp = psycho_R2(:,:,i);
+%     tmp(~my_mask) = nan;
+% %     tmp(tmp<0) = nan;
+%     tmpR2Psycho(:,i) = mean(tmp(:),'omitnan');
+%     tmp = image_R2(:,:,i);
+%     tmp(~my_mask) = nan;
+% %     tmp(tmp<0) = nan;
+%     tmpR2Image(:,i) = mean(tmp(:),'omitnan');
+% end
+tmp = TmR2Control(:,:,2);
+tmp(~my_mask) = nan;
+tmpR2Control = tmp(:);
+% tmp = TmR2PsychoNew(:,:,2);
+tmp = one_sample(:,:,1)*100;
+tmp(~my_mask) = nan;
+tmpR2Psycho = tmp(:);
+% tmp = TmR2ImageNew(:,:,2);
+tmp = one_sample(:,:,1)*100;
+tmp(~my_mask) = nan;
+tmpR2Image = tmp(:);
+
+tmpR2Control = tmpR2Control(~isnan(tmpR2Control));
+tmpR2Psycho = tmpR2Psycho(~isnan(tmpR2Psycho));
+% tmpR2Psycho(tmpR2Psycho<0) = nan;
+tmpR2Image = tmpR2Image(~isnan(tmpR2Image));
+% tmpR2Image(tmpR2Image<0) = nan;
+
+target_group = [tmpR2Control, tmpR2Psycho, tmpR2Image];
+% target_group = unthreshMap(my_mask>0);
+isout = isoutlier(target_group,'quartiles');
+xClean = target_group;
+xClean(isout) = NaN;
+figure;boxplot(xClean)
+[est,HDI]=data_plot(xClean,'estimator','trimmed mean'); % test with estimator 
+xticks([1,2.25,3.5])
+xticklabels({'categorial', 'psycho', 'image'})
+% title(sprintf("Explained variance by model\n(R^2 values)"),'FontSize',fontSize)
+% ylim([0 0.25])
+
+%% Plot R2 trimmed mean
+% TmR2New = TmR2New*100;
+colorOrder = get(gca,'colororder');
+% chan = 62;
+chan = 6;
+figure;
+% plot(vect,TmR2(chan,:,2),'LineWidth',2); 
+% plot(vect,TmR2Control(chan,:,2),'LineWidth',2); 
+% plot(vect,TmR2Naive(chan,:,2),'LineWidth',2); 
+% plot(vect,TmR2Psycho(chan,:,2),'LineWidth',2); 
+% plot(vect,TmR2Image(chan,:,2),'LineWidth',2);
+plot(vect,TmCon(chan,:,2),'LineWidth',2,'Color',colorOrder(colorindex,:));
+% plot(vect,TmR2New(chan,:,2),'LineWidth',2,'Color',colorOrder(colorindex,:));
+hold on
+colorindex = 2;
+% patch([vect fliplr(vect)], [TmR2(chan,:,1),fliplr(TmR2(chan,:,3))], colorOrder(colorindex,:),'FaceAlpha',0.5);
+% patch([vect fliplr(vect)], [TmR2Control(chan,:,1),fliplr(TmR2Control(chan,:,3))], colorOrder(colorindex,:),'FaceAlpha',0.5);
+% patch([vect fliplr(vect)], [TmR2Naive(chan,:,1),fliplr(TmR2Naive(chan,:,3))], colorOrder(colorindex,:),'FaceAlpha',0.5);
+% patch([vect fliplr(vect)], [TmR2Psycho(chan,:,1),fliplr(TmR2Psycho(chan,:,3))], colorOrder(colorindex,:),'FaceAlpha',0.5);
+% patch([vect fliplr(vect)], [TmR2Image(chan,:,1),fliplr(TmR2Image(chan,:,3))], colorOrder(colorindex,:),'FaceAlpha',0.5);
+patch([vect fliplr(vect)], [TmCon(chan,:,1),fliplr(TmCon(chan,:,3))], colorOrder(colorindex,:),'FaceAlpha',0.5);
+% patch([vect fliplr(vect)], [TmR2New(chan,:,1),fliplr(TmR2New(chan,:,3))], colorOrder(colorindex,:),'FaceAlpha',0.5);
+xlabel('time(ms)', 'FontSize', 14)
+% ylabel('R^2(%)', 'FontSize', 14)
+ylabel('Amplitude (arbitrary units)', 'FontSize', 14)
+
+% line([-200,500],[0.6525,0.6525],'Color','k')
+
+% title('Averaged Explained Variance and 95% CI\newline              Channel 29 (Oz)','FontSize',14)
+% title('Averaged Explained Variance and 95% CI\newline       Categorial Model [Channel 21 (P3)]','FontSize',14)
+% title('Averaged Explained Variance and 95% CI\newline       Image Model [Channel 25 (PO7)]','FontSize',14)
+% title('Averaged Explained Variance and 95% CI\newline Psycho-Image Model [Channel 62 (PO8)]','FontSize',14)
+title('Averaged Categorical Contrast and 95% CI\newline   Psycho-Image Model [Channel 6 (F5)]','FontSize',14)
+
+hold on
+for i = 1:length(unique(mask_r2_complete))-1
+    [~,col] = find(mask_r2_complete == i);
+    patch_start = vect(min(col));
+    patch_end = vect(max(col));
+%     rectangle('Position',[patch_start -0.06 patch_end-patch_start 0.05+0.06],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+%     rectangle('Position',[patch_start -4 patch_end-patch_start 8+4],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+    % rectangle('Position',[patch_start 0 patch_end-patch_start 12],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+    rectangle('Position',[patch_start -1 patch_end-patch_start 2.5+1],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+    % rectangle('Position',[patch_start min(TmR2New(chan,:)) patch_end-patch_start max(TmR2New(chan,:))-min(TmR2New(chan,:))],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+
+end
+
+mask_psycho_image_con1(:,300:end) = 0;
+for i = 1:length(unique(mask_psycho_image_con1))-1
+    [~,col] = find(mask_psycho_image_con1 == i);
+    patch_start = vect(min(col));
+    patch_end = vect(max(col));
+%     rectangle('Position',[patch_start -0.06 patch_end-patch_start 0.05+0.06],'FaceColor',[0 1 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+%     rectangle('Position',[patch_start -4 patch_end-patch_start 8+4],'FaceColor',[0 1 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+    rectangle('Position',[patch_start -1 patch_end-patch_start 2.5+1],'FaceColor',[0 1 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+end
+
+xlim([-200,500])
+% ylim([-4,8])
+
+%find max
+% mean(mean(squeeze(TmR2Control(:,:,2)),1),2)
+% tmp = sum(squeeze(TmR2Control(:,:,2)),2);
+% tmp = sum(squeeze(TmR2New(:,:,2)),2);
+% [val,idx] = max(tmp)
+
+% [row,col] = ind2sub(size(tmp),idx);
+
+%% Plot ERP trimmed mean
+chan = 62;
+figure;
+plot(vect,TmMan(chan,:,2),'LineWidth',2); 
+hold on
+plot(vect,TmNat(chan,:,2),'LineWidth',2); 
+
+colorindex = 1;
+patch([vect fliplr(vect)], [TmMan(chan,:,1),fliplr(TmMan(chan,:,3))], colorOrder(colorindex,:),'FaceAlpha',0.5);
+colorindex = 2;
+patch([vect fliplr(vect)], [TmNat(chan,:,1),fliplr(TmNat(chan,:,3))], colorOrder(colorindex,:),'FaceAlpha',0.5);
+
+f=get(gca,'Children');
+my_legend = legend([f(3),f(4)],'manufactured','natural');
+set(my_legend,'FontSize',14);
+
+
+xlabel('time(ms)', 'FontSize', 14)
+ylabel('Amplitude', 'FontSize', 14)
+
+title('Averaged ERPs and 95% CI\newline         Channel 62 (PO8)','FontSize',14)
+
+hold on
+for i = 1:length(unique(mask_r2_complete))-1
+    [~,col] = find(mask_r2_complete == i);
+    patch_start = vect(min(col));
+    patch_end = vect(max(col));
+    rectangle('Position',[patch_start 0 patch_end-patch_start 12],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+    % rectangle('Position',[patch_start -0.04 patch_end-patch_start 0.08+0.04],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+    % rectangle('Position',[patch_start 0 patch_end-patch_start 12],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+%     rectangle('Position',[patch_start -1 patch_end-patch_start 2.5+1],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+    % rectangle('Position',[patch_start min(TmR2New(chan,:)) patch_end-patch_start max(TmR2New(chan,:))-min(TmR2New(chan,:))],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+
+end
+
+mask_psycho_image_con1(:,300:end) = 0;
+for i = 1:length(unique(mask_psycho_image_con1))-1
+    [~,col] = find(mask_psycho_image_con1 == i);
+    patch_start = vect(min(col));
+    patch_end = vect(max(col));
+    rectangle('Position',[patch_start 0 patch_end-patch_start 12],'FaceColor',[0 1 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+end
+
+xlim([-200,500])
+%%
+cd(PATH_TO_ROOT)
+% expected_chanlocs = limo_avg_expected_chanlocs(PATH_TO_DERIV, model.defaults);
+
+my_name = 'explained_var_psycho';
+my_param = 'R2';
+
+if ~exist(fullfile(PATH_TO_ROOT,[my_name '_' my_param]),'dir')
+    mkdir(fullfile(PATH_TO_ROOT,[my_name '_' my_param]))
+end
+cd(fullfile(PATH_TO_ROOT,[my_name '_' my_param]))
+
+% load('D:\__EEG-data\BIDS_files\psycho_image_con_1\LIMO.mat')
+% load('D:\__EEG-data\BIDS_files\nat_man_simple_con_1\LIMO.mat')
+% load('D:\__EEG-data\BIDS_files\psycho_image_naive_Beta\parameter_3\LIMO.mat')
+% load('D:\__EEG-data\BIDS_files\image_con_1\LIMO.mat')
+load('D:\__EEG-data\BIDS_files\psycho_R2\LIMO.mat')
+
+
+LIMO.dir = pwd;
+LIMO.data.data_dir = pwd;
+LIMO.design.method = 'Trimmed Mean';
+% LIMO.design.tfce = 0;
+LIMO.design.bootstrap = 100;
+save('LIMO.mat','LIMO')
+new_psycho_R2 = max(0,psycho_R2);
+% new_image_R2 = max(0,image_R2);
+% limo_random_robust(1,complete_R2,1,LIMO) %line 426
+% limo_random_robust(1,control_R2,1,LIMO) %line 426
+limo_random_robust(1,new_psycho_R2,1,LIMO) %line 426
+% limo_random_robust(1,image_R2,1,LIMO) %line 426
+
+load('one_sample_ttest_parameter_1.mat')
+unthreshMap = squeeze(one_sample(:,:,1));
+% figure;imagesc(unthreshMap);colorbar;
+figure;imagesc(unthreshMap*100);colorbar;
+% caxis([0 100*max(unthreshMap(:))])
+% caxis([0 4])
+x = linspace(-200,500,8);
+xticks(1:50:351)
+xticklabels(num2str(x'))
+xlabel('time(ms)', 'FontSize', 14)
+ylabel('electrode', 'FontSize', 14)
+% title('Explained Variance of Categorial Model','FontSize',14)
+% title('Explained Variance of Naive Model','FontSize',14)
+title('Explained Variance of Psycho Model','FontSize',14)
+% title('Explained Variance of Image Model','FontSize',14)
+% title('Explained Variance of Psycho-Image Model','FontSize',14)
+% title('Categorical Contrast from Psycho-Image Model','FontSize',14)
+
+% limo_results
+
+%%
+hold on
+% mask_image_R2 = mask;
+% mask_image_R2(mask_image_R2==4) = 2;
+% mask_image_R2(mask_image_R2==5) = 3;
+
+% mask_psycho_R2 = mask;
+for i = 1:length(unique(mask_image_R2))-1
+% for i = 1:length(unique(mask_psycho_R2))-1
+%     [~,col] = find(mask_complete_R2);
+    [~,col] = find(mask_image_R2 == i);
+%     [~,col] = find(mask_psycho_R2 == i);
+    patch_start = min(col);
+    patch_end = max(col);
+    rectangle('Position',[patch_start 0 patch_end-patch_start 65],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+%     patch_start = min(vect(col));
+%     patch_end = max(vect(col));
+    % rectangle('Position',[patch_start -0.04 patch_end-patch_start 0.08+0.04],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+    % rectangle('Position',[patch_start 0 patch_end-patch_start 12],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+%     rectangle('Position',[patch_start -1 patch_end-patch_start 2.5+1],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+    % rectangle('Position',[patch_start min(TmR2New(chan,:)) patch_end-patch_start max(TmR2New(chan,:))-min(TmR2New(chan,:))],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+end
+
+% [~,col] = find(mask_complete_con);
+for i = 1:length(unique(mask_control_con))-1
+    [~,col] = find(mask_control_con==i);
+    patch_start = min(col);
+    patch_end = max(col);
+    rectangle('Position',[patch_start 0 patch_end-patch_start 65],'FaceColor',[0 1 0 0.6], 'EdgeColor', [1, 0, 0, 0])
+% patch_start = min(vect(col));
+% patch_end = max(vect(col));
+% rectangle('Position',[patch_start -0.04 patch_end-patch_start 0.08+0.04],'FaceColor',[0 1 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+% rectangle('Position',[patch_start 0 patch_end-patch_start 12],'FaceColor',[0 1 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+% rectangle('Position',[patch_start -1 patch_end-patch_start 2.5+1],'FaceColor',[0 1 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+% rectangle('Position',[patch_start min(TmR2New(chan,:)) patch_end-patch_start max(TmR2New(chan,:))-min(TmR2New(chan,:))],'FaceColor',[1 0 0 0.4], 'EdgeColor', [1, 0, 0, 0])
+end
+% limo_results
+% title('one sample ttest T values cluster correction')
+% title(' ')
+% limo_display_image(LIMO,TmR2(:,:,2),mask_complete_R2,'mean R2',0)
+
 %% Find cluster of significant contrast within complete model
 
 % modify Beta_files_GLM_OLS_Time_Channels.txt files to access complete and
@@ -344,7 +788,7 @@ end
 cd(PATH_TO_ROOT)
 expected_chanlocs = limo_avg_expected_chanlocs(PATH_TO_DERIV, model.defaults);
 
-my_name = 'nat_man_simple';
+my_name = 'last_psycho_image';
 my_param = 'con_1';
 
 %     my_con = 'con_1';
@@ -357,14 +801,14 @@ LIMOPath = limo_random_select('one sample t-test',expected_chanlocs,'LIMOfiles',
     LIMOfiles,'analysis_type','Full scalp analysis',...
     'type','Channels','nboot',100,'tfce',1,'skip design check','yes');
 
-% limo_results %find regions of significant contrast through clustering algo with p=0.05
+limo_results %find regions of significant contrast through clustering algo with p=0.05
 % pause()
 % mask_complete = mask;
 
-cd(fullfile(PATH_TO_ROOT,'nat_man_simple_con_1'))
-limo_results %find regions of significant contrast in categorical data only model
-pause()
-mask_simple = mask;
+% cd(fullfile(PATH_TO_ROOT,'nat_man_simple_con_1'))
+% limo_results %find regions of significant contrast in categorical data only model
+% pause()
+% mask_simple = mask;
 
 %% Find cluster of significant beta within both models (where do the covariates have a significant influence on the model)
 numberOfCov = size(model.cont_files{1},2);

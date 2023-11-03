@@ -1,8 +1,42 @@
-function [imageFeatures] = extract_cov(PATH_TO_IMAGES)
+function [imageFeatures] = extract_cov(PATH_TO_DERIV,PATH_TO_IMAGES,task_name)
 %% extract_cov extracts psycholinguistic and image features from the database
 
+%% Psycho-linguistic variables
+dinfo = dir(fullfile(PATH_TO_DERIV,'sub-*'));
+for i = numel( dinfo ):-1:1
+    if i >= 10
+        subfolder = ['sub-0' num2str(i)];
+    else
+        subfolder = ['sub-00' num2str(i)];
+    end
+    eeg_path = fullfile(PATH_TO_DERIV, subfolder,'eeg',[subfolder '_task-' task_name '_raw.mat']);
+    eeg = load(eeg_path);
+    eeg = eeg.(cell2mat(fieldnames(eeg)));
+    
+    f = eeg.trialinfo.Properties.VariableNames;
+    trialinfo = [];
+    for j = 1:17
+        trialinfo = [trialinfo table(eeg.trialinfo.(f{j}), 'VariableNames', f(j))];
+    end
+    
+    covIdx = 4:17;
+    [trialinfo,explVar] = psycho_cov_select_corr(trialinfo,covIdx,'visual check',1);
+    
+    totExplVar(:,i) = explVar;
+    
+%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','trialinfo_psycho.mat'))
+    trialinfo.condition(ismember(trialinfo.condition,[1 3 5])) = 1;
+    trialinfo.condition(ismember(trialinfo.condition,[2 4 6])) = 2;
+    trialinfo.condition(ismember(trialinfo.condition,[7 8])) = 0;
+    trialinfo.condition(isnan(trialinfo.condition)) = 0;
+    trialinfo = table2struct(trialinfo);
+    save(fullfile(PATH_TO_DERIV,subfolder,'eeg','trialinfo_psycho.mat'),'trialinfo')
+end
 
-%% Covariates on image features
+% mean(explVar([1,3])) %92.2534%
+% mean(explVar([2,4])) %78.3027%
+
+%% Image features
 % PATH_TO_IMAGES = 'D:\_ARC-images\ARC tâche Final\ARC tâche Final\300x300';
 dinfo = dir(fullfile(PATH_TO_IMAGES,'*.jpg'));
 img_name = {dinfo.name};
