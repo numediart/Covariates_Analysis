@@ -11,8 +11,8 @@
 
 	"PATH_TO_ROOT" 			: "D:/__EEG-data/BIDS_files",
 	"PATH_TO_FIELDTRIP" 	: "D:/FieldTrip",
-	"PATH_TO_LIMO" 			: "C:/Users/luca-/OneDrive - UMONS/_PhD/__GitHub/Covariates_Analysis/limo_tools",	
-	"PATH_TO_FT2LIMO" 		: "C:/Users/luca-/OneDrive - UMONS/_PhD/__GitHub/Covariates_Analysis/LIMO-for-FieldTrip",
+	"PATH_TO_LIMO" 			: "D:/_LIMO/limo_tools",	
+	"PATH_TO_FT2LIMO" 		: "D:/_LIMO/LIMO-for-FieldTrip",
 	"PATH_TO_SOURCE" 		: "D:/__EEG-data/BIDS_source",
 
 	"PATH_TO_COV_ANALYSIS" 	: "C:/Users/luca-/OneDrive - UMONS/_PhD/__GitHub/Covariates_Analysis",
