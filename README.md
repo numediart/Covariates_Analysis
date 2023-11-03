@@ -7,9 +7,9 @@ This repository is linked to the publication:
 All descriptions and computations of covariates related to image visual features can be found in the [utils](https://github.com/numediart/Covariates_Analysis/blob/main/utils/Readme.md) folder.
 
 ## Requirements
-[FieldTrip](https://github.com/fieldtrip/fieldtrip.git)
-[LIMO-for-FieldTrip](https://github.com/LucaLaFisca/LIMO-for-FieldTrip.git)
-[limo_tools](https://github.com/LIMO-EEG-Toolbox/limo_tools.git)
+- [FieldTrip](https://github.com/fieldtrip/fieldtrip.git)
+- [LIMO-for-FieldTrip](https://github.com/LucaLaFisca/LIMO-for-FieldTrip.git)
+- [limo_tools](https://github.com/LIMO-EEG-Toolbox/limo_tools.git)
 
 ## Tutorial
 TO BE WRITTEN
