@@ -11,5 +11,7 @@ All descriptions and computations of covariates related to image visual features
 - [LIMO-for-FieldTrip](https://github.com/LucaLaFisca/LIMO-for-FieldTrip.git)
 - [limo_tools](https://github.com/LIMO-EEG-Toolbox/limo_tools.git)
 
+If you want to run the code as it is, you should download the corresponding dataset from [Zenodo](https://zenodo.org/records/7298746#.Y2kKIXbMK3A)
+
 ## Tutorial
 TO BE WRITTEN

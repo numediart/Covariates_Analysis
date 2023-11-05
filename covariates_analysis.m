@@ -1,15 +1,12 @@
+function [R2_losses] = covariates_analysis(config_file)
 %% Covariates Analysis
 
 %% (DATA SPECIFIC) Set paths and variable names
-% required data (set to true for the first use of ft2limo)
-mfilename = 'covariates_analysis.m';
-root = fileparts(which(mfilename));
-addpath(genpath(root))
-cd(root)
-
 %read config file
-fname = 'config.json';
-fid = fopen(fname);
+if ~exist('config_file', 'var')
+    config_file = 'config.json';
+end
+fid = fopen(config_file);
 raw = fread(fid,inf);
 str = char(raw');
 fclose(fid);
@@ -23,13 +20,16 @@ PATH_TO_FT2LIMO             = config.PATH_TO_FT2LIMO;
 PATH_TO_COV_ANALYSIS        = config.PATH_TO_COV_ANALYSIS;
 
 ext = ['.' config.datatype];
+config.ext = ext;
 save_choice = config.save_choice;
 
 
 % output folder (derivatives)
 PATH_TO_DERIV               = fullfile(PATH_TO_ROOT, 'derivatives');
+config.PATH_TO_DERIV        = PATH_TO_DERIV;
 
 % add toolboxes to path
+cd(PATH_TO_FIELDTRIP)
 ft_defaults
 addpath(PATH_TO_LIMO)
 addpath(genpath(fullfile(PATH_TO_LIMO,'external')))
@@ -38,160 +38,14 @@ addpath(genpath(PATH_TO_FT2LIMO))
 addpath(genpath(PATH_TO_COV_ANALYSIS))
 
 BIDS_FOLDER = PATH_TO_ROOT;
+config.BIDS_FOLDER = BIDS_FOLDER;
 
 cd(PATH_TO_ROOT)
 
-%% Define the raw structure containing information about the covariates in the field "trialinfo"
-dinfo = dir(fullfile(BIDS_FOLDER,'sub-*'));
-subj = {dinfo.name};
-for subj_name = subj
-    subj_name = subj_name{1};
-    dinfo = dir(fullfile(BIDS_FOLDER,subj_name,'eeg',['*',ext]));
-    EEG_FILE = fullfile(BIDS_FOLDER, subj_name, 'eeg', dinfo.name);
-    
-    cfg = [];
-    cfg.dataset = EEG_FILE;
-    raw_eeg = ft_preprocessing(cfg);
-    
-    cfg                     = [];
-    cfg.dataset             = EEG_FILE;
-    cfg.root                = BIDS_FOLDER;
-    cfg.trialdef.eventtype  = config.trialdef_eventtype;
-    cfg.trialfun            = config.trial_function; % define the extraction of covariates information (cf. utils/SenSem_trialfun_trial.m)
-    cfg.cov_description     = config.cov_description;
-    cfg.trialdef.eventvalue = config.trialdef_eventvalue;
-    cfg.trialdef.prestim    = config.trialdef_prestim;
-    cfg.trialdef.poststim   = config.trialdef_poststim; %Note: the minimal time between the target appearance and the next primer is 2s
-    cfg = ft_definetrial(cfg);
-    eeg = ft_redefinetrial(cfg,raw_eeg);
-    
-    if save_choice
-        save(fullfile(PATH_TO_DERIV, subj_name, 'eeg', sprintf('%s_task-%s_raw.mat',subj_name,config.task_name)))
-    end
-end
+%% Selection of variables/confounders/covariates (cf. paper section 2.4)
+[trialinfo, correlation_val] = var_selection(config);
 
-%% Extract the covariates
-imageFeatures = extract_cov(PATH_TO_DERIV,config.PATH_TO_IMAGES,task_name); % this process takes few minutes
-save(fullfile(PATH_TO_DERIV,'image_features.mat'),'imageFeatures')
-
-visualSimilarity = extract_visual_sim(config.PATH_TO_SIMILATITY, config.PATH_TO_ITEMS);
-
-tmp = struct2array(rmfield(imageFeatures,'name'));
-correl = corrcoef(tmp);
-correl(correl<0.55 & correl>-0.55) = 0;
-figure;imagesc(correl)
-
-%% compute PCA for homogeneity-contrast related features
-tmp = [zscore(imageFeatures.entropyValue) zscore(imageFeatures.contrastValue) zscore(imageFeatures.energyValue)...
-    zscore(imageFeatures.homogeneityValue)];
-[coef, score, ~,~,explained,~] = pca(tmp);
-contrastPCA = score(:,1);
-fprintf('contrast PCA coefficients = %d with corresponding explained variances = %d\n', coef, explained)
-
-%% compute PCA for frequency related features
-tmp = [zscore(imageFeatures.numberOfCluster) zscore(imageFeatures.maxClusterFreq) zscore(imageFeatures.maxClusterDist)];
-[coef, score, ~,~,explained,~] = pca(tmp);
-freqPCA = score(:,1);
-fprintf('frequency PCA coefficients = %d with corresponding explained variances = %d\n', coef, explained)
-
-%% Create the trialinfo structure
-imageFeaturesReduced = rmfield(imageFeatures,{'name','entropyValue','contrastValue','energyValue','homogeneityValue','numberOfCluster','maxClusterFreq','maxClusterDist'});
-imageFeaturesReduced.contrastPCA = contrastPCA;
-imageFeaturesReduced.freqPCA = freqPCA;
-f = fieldnames(imageFeaturesReduced);
-
-dinfo = dir(fullfile(BIDS_FOLDER,'sub-*'));
-subj = {dinfo.name};
-for subj_name = subj
-    subj_name = subj_name{1};
-    load(fullfile(BIDS_FOLDER,'derivatives',subj_name, 'eeg','trialinfo_psycho.mat'));    
-    for j = 1:size(trialinfo,1)
-        idxTarget = cell2mat(cellfun(@(x) strcmp(x(1:end-4),trialinfo(j).target{1}),cellstr(char(imageFeatures.name)), 'UniformOutput',false));
-        idxPrimer= cell2mat(cellfun(@(x) strcmp(x(1:end-4),trialinfo(j).primer{1}),cellstr(char(imageFeatures.name)), 'UniformOutput',false));
-        for k = 1:length(f)
-            try
-                trialinfo(j).([f{k} '_primer']) = imageFeaturesReduced(idxPrimer).(f{k});
-                trialinfo(j).([f{k} '_target']) = imageFeaturesReduced(idxTarget).(f{k});
-            catch
-                trialinfo(j).([f{k} '_primer']) = NaN;
-                trialinfo(j).([f{k} '_target']) = NaN;
-            end
-        end
-        idx = cell2mat(cellfun(@(x,y) strcmp(x,trialinfo(j).target{1}) & strcmp(y,trialinfo(j).primer{1}),...
-            cellstr(char(visualSimilarity.target)),cellstr(char(visualSimilarity.primer)), 'UniformOutput',false));
-        try
-            trialinfo(j).visualSimilarity = visualSimilarity.similarity{idx};
-        catch
-            trialinfo(j).visualSimilarity = NaN;
-        end
-    end
-    
-    trialinfo = struct2table(trialinfo);
-    
-    save(fullfile(BIDS_FOLDER,'derivatives',subj_name, 'eeg','trialinfo_psycho_image.mat'),'trialinfo');
-end
-
-%% Total correlation analysis
-covIdx = 4:26;
-fields = trialinfo(:,covIdx).Properties.VariableNames;
-tmp = trialinfo{:,covIdx};
-
-to_del = [];
-for i = 1:length(tmp)
-    if any(isnan(tmp(i,:)))
-        to_del = [to_del i];
-    end
-end
-tmp(to_del,:) = [];
-covariates = [];
-idx = cell2mat(cellfun(@(x) ~contains(x,'primer'),fields,'UniformOutput',false));
-% for i = 2:2:length(fields)
-for i = find(idx)
-    tmp2 = tmp(:,i);
-    covariates = [covariates tmp2(~isnan(tmp2(:,1)))];
-end
-r = corr(covariates);
-r(2,3) = -0.4306;
-r(3,2) = r(2,3);
-r(5,7) = 0.4257;
-r(7,5) = r(5,7);
-figure();imagesc(r,[-1,1]);colorbar
-cmap = interp1([-1;0;1],[1 1 0;0 0 1;1 1 0],linspace(-1,1)');
-colormap(cmap)
-% labels = {'Entropy', 'Contrast', 'Corr.', 'Energy', 'Homog.', 'Compact.', 'Ratio',...
-%     '#Spect.\newlineClust.', 'Freq.\newlineEnergy', 'MaxFreq', 'Max.\newlineFreq.\newlineDist'};
-labels = {'#Phon.', 'AoA', 'Imageab.','Psycho.\newlineFreq.', 'Familiar.',...
-    'Corr.', 'Compact.', 'Ratio', 'Freq.\newlineEn.', 'Contrast', 'Image\newlineFreq.','Visual\newlineSim.'};
-
-xticks(1:length(labels))
-xticklabels(labels)
-yticks(1:length(labels))
-yticklabels(labels)
-ax = gca;
-ax.TitleFontSizeMultiplier = 1.5;
-
-%% Show covariates difference between categories
-% trialinfo.condition(ismember(trialinfo.condition,[1 3 5])) = 1;
-% trialinfo.condition(ismember(trialinfo.condition,[2 4 6])) = 2;
-
-x1 = find(trialinfo.condition==1);
-x2 = find(trialinfo.condition==2);
-g = [zeros(length(x1), 1); ones(length(x2), 1); 2;...
-     3*ones(length(x1), 1); 4*ones(length(x2), 1); 5;...
-     6*ones(length(x1), 1); 7*ones(length(x2), 1); 8;...
-     9*ones(length(x1), 1); 10*ones(length(x2), 1); 11;...
-     12*ones(length(x1), 1); 13*ones(length(x2), 1); 14];
-
-fields = {'target_phoneme_nb','target_AoA','target_imageability','target_psycho_freq','target_familiarity'};
-boxMat = [];
-for f = fields
-    f = f{1};
-    zInfo = zscore(trialinfo.(f));
-    boxMat = [boxMat;zInfo(trialinfo.condition==1);zInfo(trialinfo.condition==2);nan];
-end
-figure;
-boxplot(boxMat,g)
-
+%% Linear Modeling (cf. paper section 2.5)
 
 %% Model with image features only
 dinfo = dir(fullfile(BIDS_FOLDER,'sub-*'));

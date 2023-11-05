@@ -16,8 +16,8 @@
 	"PATH_TO_SOURCE" 		: "D:/__EEG-data/BIDS_source",
 
 	"PATH_TO_COV_ANALYSIS" 	: "C:/Users/luca-/OneDrive - UMONS/_PhD/__GitHub/Covariates_Analysis",
-	"PATH_TO_IMAGES" 		: "D:/_ARC-images/ARC_tache_Final/ARC_tache_Final/300x300",
-	"PATH_TO_SIMILARIITY" 	: "utils/visual_similarity.csv",
+	"PATH_TO_IMAGES" 		: "D:/_ARC-images/ARC_tache_Final/300x300",
+	"PATH_TO_SIMILARITY" 	: "utils/visual_similarity.csv",
 	"PATH_TO_ITEMS" 		: "utils/items_description.csv",
 
 	"trial_function" 		: "SenSem_trialfun_trial",

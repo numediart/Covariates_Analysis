@@ -1,5 +1,13 @@
-function [imageFeatures] = extract_cov(PATH_TO_DERIV,PATH_TO_IMAGES,task_name)
+function [imageFeatures] = extract_cov(PATH_TO_DERIV,PATH_TO_IMAGES,task_name, config_file)
 %% extract_cov extracts psycholinguistic and image features from the database
+if nargin < 4
+    config_file = 'config.json';
+end
+fid = fopen(config_file);
+raw = fread(fid,inf);
+str = char(raw');
+fclose(fid);
+config = jsondecode(str);
 
 %% Psycho-linguistic variables
 dinfo = dir(fullfile(PATH_TO_DERIV,'sub-*'));
@@ -20,7 +28,7 @@ for i = numel( dinfo ):-1:1
     end
     
     covIdx = 4:17;
-    [trialinfo,explVar] = psycho_cov_select_corr(trialinfo,covIdx,'visual check',1);
+    [trialinfo,explVar] = psycho_cov_select_corr(trialinfo,covIdx,'visual check',0);
     
     totExplVar(:,i) = explVar;
     
@@ -30,7 +38,9 @@ for i = numel( dinfo ):-1:1
     trialinfo.condition(ismember(trialinfo.condition,[7 8])) = 0;
     trialinfo.condition(isnan(trialinfo.condition)) = 0;
     trialinfo = table2struct(trialinfo);
-    save(fullfile(PATH_TO_DERIV,subfolder,'eeg','trialinfo_psycho.mat'),'trialinfo')
+    if config.save_choice
+        save(fullfile(PATH_TO_DERIV,subfolder,'eeg','trialinfo_psycho.mat'),'trialinfo')
+    end
 end
 
 % mean(explVar([1,3])) %92.2534%

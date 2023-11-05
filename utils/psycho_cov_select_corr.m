@@ -7,7 +7,7 @@ function [trialinfo,explVar] = psycho_cov_select_corr(trialinfo,covIdx,varargin)
 if ~isempty(varargin) && strcmp(varargin{1},'visual check')
     visualCheck = varargin{2};
 else
-    visualCheck = 0;
+    visualCheck = 1;
 end
     
 %%
@@ -60,7 +60,7 @@ if visualCheck
     ax = gca;
     ax.TitleFontSizeMultiplier = 1.5;
 
-    % toMerge = input('Which covariates to merge? (e.g. {[1 2]; [5 6 7]})');
+    toMerge = input('Which covariates to merge? (e.g. {[1 2]; [5 6 7]})');
 else
     toMerge = {[2 3];[5 6]};
 end
