@@ -29,6 +29,10 @@
 	"trialdef_prestim"		: 0.5,
 	"trialdef_poststim"		: 1,
 
+	"trial_start" 			: -200,
+	"trial_end" 			: 500,
+	"comment_trial" 		: "in ms",
+
 
 	"n_subjects"			: 20,
 	"n_dipoles" 			: 3,

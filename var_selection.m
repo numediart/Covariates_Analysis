@@ -1,4 +1,4 @@
-function [trialinfo, r] = var_selection(config)
+function [r] = var_selection(config)
 % This function creates a trialinfo table with all the information needed
 % about the studied confounders
 % /!\/!\/!\
@@ -70,7 +70,8 @@ dinfo = dir(fullfile(config.BIDS_FOLDER,'sub-*'));
 subj = {dinfo.name};
 for subj_name = subj
     subj_name = subj_name{1};
-    load(fullfile(config.BIDS_FOLDER,'derivatives',subj_name, 'eeg','trialinfo_psycho.mat'));    
+    trialinfo = load(fullfile(config.BIDS_FOLDER,'derivatives',subj_name, 'eeg','trialinfo_psycho.mat'));
+    trialinfo = trialinfo.(cell2mat(fieldnames(trialinfo)));
     for j = 1:size(trialinfo,1)
         idxTarget = cell2mat(cellfun(@(x) strcmp(x(1:end-4),trialinfo(j).target{1}),cellstr(char(imageFeatures.name)), 'UniformOutput',false));
         idxPrimer= cell2mat(cellfun(@(x) strcmp(x(1:end-4),trialinfo(j).primer{1}),cellstr(char(imageFeatures.name)), 'UniformOutput',false));
@@ -102,7 +103,8 @@ for subj_name = subj
     trialinfo = struct2table(trialinfo);
     
     if config.save_choice
-        save(fullfile(config.BIDS_FOLDER,'derivatives',subj_name, 'eeg','trialinfo_psycho_image.mat'),'trialinfo');
+        trialinfo_filename = 'trialinfo_psycho_image.mat';
+        save(fullfile(config.BIDS_FOLDER,'derivatives',subj_name, 'eeg',trialinfo_filename),'trialinfo');
     end
 end
 
@@ -144,6 +146,25 @@ yticks(1:length(labels))
 yticklabels(labels)
 ax = gca;
 ax.TitleFontSizeMultiplier = 1.5;
+
+%% Model with image features only
+dinfo = dir(fullfile(config.BIDS_FOLDER,'sub-*'));
+subj = {dinfo.name};
+for subj_name = subj
+    subj_name = subj_name{1};
+    trialinfo = load(fullfile(BIDS_FOLDER,'derivatives',subj_name, 'eeg',trialinfo_filename));
+    trialinfo = trialinfo.(cell2mat(fieldnames(trialinfo)));
+    f = trialinfo.Properties.VariableNames;
+    for k = 4:15 % it has to be adapted following your model
+        trialinfo = removevars(trialinfo,f(k));
+    end
+    
+    if config.save_choice
+        trialinfo_filename = 'trialinfo_image.mat';
+%         trialinfo_filename = 'new_image_trialinfo.mat';
+        save(fullfile(config.BIDS_FOLDER,'derivatives',subj_name, 'eeg',trialinfo_filename),'trialinfo');
+    end
+end
 
 %% Show covariates difference between categories
 % trialinfo.condition(ismember(trialinfo.condition,[1 3 5])) = 1;
