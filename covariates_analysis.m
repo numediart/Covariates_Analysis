@@ -151,9 +151,9 @@ model_names = {'model_psycho', 'model_image', 'model_psycho_image'}; %Note: a na
 selected_regressors = {4:13,14:26,4:26}; % the regressors corresponding to each model_name
 trialinfo_filename = 'trialinfo_psycho_image'; % give the trialinfo corresponding to the complete model
 
-for i = 1:length(model_names)
-    model_name = model_names{i};
-    regressors = selected_regressors{i};
+for k = 1:length(model_names)
+    model_name = model_names{k};
+    regressors = selected_regressors{k};
 
     model = load(fullfile(BIDS_FOLDER,'derivatives',[model_name,'.mat']));
     model = model.(cell2mat(fieldnames(model)));
@@ -279,49 +279,101 @@ for i = 1:length(model_names)
     end
 end
 
-%% Find cluster of significant R2
+%% Compute corrected R2 (cf. paper figure 7)
 dinfo = dir(fullfile(PATH_TO_DERIV,'sub-*'));
-% complete_R2 = [];
-% control_R2 = [];
-% naive_R2 = [];
-% psycho_R2 = [];
-% image_R2 = [];
-% complete_con = [];
-% erpMan = [];
-% erpNat= [];
-for i = numel( dinfo ):-1:1
-    if i >= 10
-        subfolder = ['sub-0' num2str(i)];
-    else
-        subfolder = ['sub-00' num2str(i)];
+model_names = {'model_psycho', 'model_image', 'model_psycho_image'}; %Note: a corrected r2 for categorical model is useless
+for k = 1:length(model_names)
+    model_name = model_names{k};
+    corrected_R2 = [];
+    for i = numel( dinfo ):-1:1
+        if i >= 10
+            subfolder = ['sub-0' num2str(i)];
+        else
+            subfolder = ['sub-00' num2str(i)];
+        end
+        load(fullfile(PATH_TO_DERIV,subfolder,'eeg',[model_name '_GLM_OLS_Time_Channels'],'R2.mat'))
+        R2 = R2(:,:,1);
+        corrected_R2(:,:,i) = R2;
+        load(fullfile(PATH_TO_DERIV,subfolder,'eeg',[model_name '_naive_GLM_OLS_Time_Channels'],'R2.mat'))
+        R2 = R2(:,:,1);
+        corrected_R2(:,:,i) = corrected_R2(:,:,i)-R2;
     end
-%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','nat_man_simple_GLM_OLS_Time_Channels','R2.mat'))
-    load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_image_GLM_OLS_Time_Channels','R2.mat'))
-%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_GLM_OLS_Time_Channels','R2.mat'))
-%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','new_image_GLM_OLS_Time_Channels','R2.mat'))
-%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','psycho_image_naive_GLM_OLS_Time_Channels','R2.mat'))
-%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_image_GLM_OLS_Time_Channels','con_1.mat'))
-%     con = con(:,:,1);
-%     complete_con(:,:,i) = con;
-    R2 = R2(:,:,1);
-    complete_R2(:,:,i) = R2;
-%     control_R2(:,:,i) = R2;
-%     naive_R2(:,:,i) = R2;
-%     psycho_R2(:,:,i) = R2;
-%     image_R2(:,:,i) = R2;
-%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','nat_man_simple_GLM_OLS_Time_Channels','R2.mat'))
-%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','image_GLM_OLS_Time_Channels','R2.mat'))
-%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_GLM_OLS_Time_Channels','R2.mat'))
-%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','new_image_naive_GLM_OLS_Time_Channels','R2.mat'))
-    load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_image_naive_GLM_OLS_Time_Channels','R2.mat'))
-%     load(fullfile(PATH_TO_DERIV,subfolder,'eeg','last_psycho_naive_GLM_OLS_Time_Channels','R2.mat'))
-    R2 = R2(:,:,1);
-%     naive_R2(:,:,i) = naive_R2(:,:,i)-R2;
-%     psycho_R2(:,:,i) = psycho_R2(:,:,i)-R2;
-%     image_R2(:,:,i) = image_R2(:,:,i)-R2;
-    complete_R2(:,:,i) = complete_R2(:,:,i)-R2;
+    if save_choice
+        save(fullfile(PATH_TO_DERIV,[model_name '_corrected_R2.mat']),'corrected_R2')
+    end
 end
-%%
+
+%% Find clusters of significant contrast and R2
+
+% modify Beta_files_GLM_OLS_Time_Channels.txt and con_1_files_GLM_OLS_Time_Channels files to access the desired models
+filePath = fullfile(PATH_TO_ROOT,'Beta_files_GLM_OLS_Time_Channels.txt');
+fileContentsBetas = fileread(filePath);
+filePath = fullfile(PATH_TO_ROOT,'con_1_files_GLM_OLS_Time_Channels.txt');
+fileContentsCon= fileread(filePath);
+
+for k = 1:length(model_names)
+    model_name = model_names{k};
+    % Replace the target string with the new string
+    newContents = strrep(fileContentsBetas, 'GLM_OLS_Time_Channels', [model_name "_GLM_OLS_Time_Channels"]);
+    newFilePath = fullfile(PATH_TO_ROOT,['Beta_files_GLM_OLS_Time_Channels_' model_name '.txt']);
+    % Write the new contents back to the file
+    fid = fopen(newFilePath, 'w');
+    if fid == -1
+        error('Cannot open file for writing: %s', newFilePath);
+    end
+    fwrite(fid, newContents);
+    fclose(fid);
+    
+    % same for con_1
+    newContents = strrep(fileContentsCon, 'GLM_OLS_Time_Channels', [model_name "_GLM_OLS_Time_Channels"]);
+    newFilePath = fullfile(PATH_TO_ROOT,['con_1_files_GLM_OLS_Time_Channels_' model_name '.txt']);
+    % Write the new contents back to the file
+    fid = fopen(newFilePath, 'w');
+    if fid == -1
+        error('Cannot open file for writing: %s', newFilePath);
+    end
+    fwrite(fid, newContents);
+    fclose(fid);
+
+    cd(PATH_TO_ROOT)
+    load(fullfile(PATH_TO_DERIV,[model_name ".mat"]))
+    expected_chanlocs = limo_avg_expected_chanlocs(PATH_TO_DERIV, model.defaults);
+
+    % Categorical clusters
+    my_param = 'con_1';
+    LIMOfiles = fullfile(PATH_TO_ROOT,sprintf('%s_files_GLM_OLS_Time_Channels_%s.txt',my_param,model_name));
+    if ~exist(fullfile(PATH_TO_ROOT,[my_name '_' my_param]),'dir')
+        mkdir(fullfile(PATH_TO_ROOT,[my_name '_' my_param]))
+    end
+    cd(fullfile(PATH_TO_ROOT,[model_name '_' my_param]))
+    LIMOPath = limo_random_select('one sample t-test',expected_chanlocs,'LIMOfiles',... 
+        LIMOfiles,'analysis_type','Full scalp analysis',...
+        'type','Channels','nboot',100,'tfce',1,'skip design check','yes');
+
+    limo_results %find regions of significant contrast through clustering algo with p=0.05
+    if save_choice
+        save(fullfile(PATH_TO_DERIV,['mask_' my_param '_' model_name '.mat']), 'mask')
+    end
+    
+    % R2 clusters
+    my_param = 'Beta';
+    LIMOfiles = fullfile(PATH_TO_ROOT,sprintf('%s_files_GLM_OLS_Time_Channels_%s.txt',my_param,model_name));
+    if ~exist(fullfile(PATH_TO_ROOT,[my_name '_' my_param]),'dir')
+        mkdir(fullfile(PATH_TO_ROOT,[my_name '_' my_param]))
+    end
+    cd(fullfile(PATH_TO_ROOT,[model_name '_' my_param]))
+    LIMOPath = limo_random_select('one sample t-test',expected_chanlocs,'LIMOfiles',... 
+        LIMOfiles,'analysis_type','Full scalp analysis',...
+        'type','Channels','nboot',100,'tfce',1,'skip design check','yes');
+
+    limo_results %find regions of significant contrast through clustering algo with p=0.05
+    if save_choice
+        save(fullfile(PATH_TO_DERIV,['mask_' my_param '_' model_name '.mat']), 'mask')
+    end
+    
+end
+
+%% Find cluster of significant R2
 for i = numel( dinfo ):-1:1 
     if i >= 10
         subfolder = ['sub-0' num2str(i)];
@@ -621,10 +673,21 @@ end
 % title(' ')
 % limo_display_image(LIMO,TmR2(:,:,2),mask_complete_R2,'mean R2',0)
 
-%% Find cluster of significant contrast within complete model
+%% Find clusters of significant contrast
 
-% modify Beta_files_GLM_OLS_Time_Channels.txt files to access complete and
-% naive Betas
+% modify Beta_files_GLM_OLS_Time_Channels.txt files to access the desired models
+filePath = 'path_to_your_file.txt'; % Replace with your actual file path
+fileContents = fileread(filePath);
+% Replace the target string with the new string
+newContents = strrep(fileContents, 'GLM_OLS_Time_Channels', [model_name "_GLM_OLS_Time_Channels"]);
+
+% Write the new contents back to the file
+fid = fopen(filePath, 'w');
+if fid == -1
+    error('Cannot open file for writing: %s', filePath);
+end
+fwrite(fid, newContents);
+fclose(fid);
 
 cd(PATH_TO_ROOT)
 expected_chanlocs = limo_avg_expected_chanlocs(PATH_TO_DERIV, model.defaults);
