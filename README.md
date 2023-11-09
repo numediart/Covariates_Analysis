@@ -75,10 +75,24 @@ The function ```var_selection(config)```, that can be found in [utils](https://g
 This function, as well as the ```extract_cov``` has been specifically designed for our dataset. You should modify them to fit your data.
 
 This step will provide the following type of figure to study the correlation between the confounders:
-![Figure Description](images/confounder_correlation.jpg)
+![Confounders Correlation Analysis](images/confounder_correlation.jpg)
 
 From that, you can select the targeted confounders for each model in the "selected_regressors" variable (line 56) as:
 ```
 selected_regressors = {[],4:13,14:26,4:26}; % the regressors corresponding to each model_name
 ```
+
+### 3. Create the models using design matrices
+Different models cat be created depending on the confounder types you want to study. To perform the same analysis as proposed here, you should have at least 2 different types of confounders (here, psycho-linguistic variables and image features).
+
+The models should be defined in the following order:
+- 1) model for categorical variables (no confounder)
+- 2) model for 1st confounder type
+- ...
+- n+1) model for nth confounder type
+- last) model with all the confounders
+
+This step creates a design matrix for each subject looking like the following figure:
+![Design Matrix](images/design_matrix.jpg)
+With the 2 first rows representing the categories and the rest being the confounder values.
 
