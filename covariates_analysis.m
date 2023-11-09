@@ -50,7 +50,9 @@ disp(correlation_val)
 %% Linear Modeling (cf. paper section 2.5)
 
 %% Create the models
-model_names = {'model_cat', 'model_psycho', 'model_image', 'model_psycho_image'};
+% model_names = {'model_cat', 'model_psycho', 'model_image', 'model_psycho_image'};
+model_names = split(config.model_names,',');
+
 selected_regressors = {[],4:13,14:26,4:26}; % the regressors corresponding to each model_name
 trialinfo_filename = 'trialinfo_psycho_image'; % give the trialinfo corresponding to the complete model
 
@@ -126,10 +128,10 @@ title('Check Design Matrix')
 % xticks(1:3);
 % xticklabels({'Manufactured\newlineitem', 'Natural\newlineitem', 'Error'});
 
-xticks(1:11);
-xticklabels({'Manufactured\newlineitem', 'Natural\newlineitem', '#Phoneme\newlinePrimer','#Phoneme\newlineTarget', ...
-    'Movie\newlineFrequency\newlinePrimer', 'Movie\newlineFrequency\newlineTarget', 'AoA\newlinePrimer','AoA\newlineTarget',...
-    'Familiarity\newlinePrimer','Familiarity\newlineTarget', 'Error'});
+% xticks(1:11);
+% xticklabels({'Manufactured\newlineitem', 'Natural\newlineitem', '#Phoneme\newlinePrimer','#Phoneme\newlineTarget', ...
+%     'Movie\newlineFrequency\newlinePrimer', 'Movie\newlineFrequency\newlineTarget', 'AoA\newlinePrimer','AoA\newlineTarget',...
+%     'Familiarity\newlinePrimer','Familiarity\newlineTarget', 'Error'});
 
 % xticks(1:16);
 % xticklabels({'Manufactured\newlineitem', 'Natural\newlineitem', 'Correlation\newlinePrimer', 'Correlation\newlineTarget',...
@@ -137,17 +139,18 @@ xticklabels({'Manufactured\newlineitem', 'Natural\newlineitem', '#Phoneme\newlin
 %     'FreqEnergy\newlinePrimer', 'FreqEnergy\newlineTarget', 'Contrast\newlinePrimer','Contrast\newlineTarget',...
 %     'frequency\newlinePrimer', 'frequency\newlineTarget', 'Visual\newlineSimilarity', 'Error'});
 
-% xticks(1:24);
-% xticklabels({'Man.\newlineitem', 'Nat.\newlineitem', '#Phon.\newlinePrimer','#Phon.\newlineTarget', ...
-%     'MovFreq.\newlinePrimer', 'MovFreq.\newlineTarget', 'AoA\newlinePrimer','AoA\newlineTarget',...
-%     'Fam.\newlinePrimer','Fam.\newlineTarget',...
-%     'Corr.\newlinePrimer', 'Corr.\newlineTarget',...
-%     'Compact.\newlinePrimer', 'Compact.\newlineTarget', 'Ratio\newlinePrimer','Ratio\newlineTarget',...
-%     'FreqEn.\newlinePrimer', 'FreqEn.\newlineTarget', 'Contr.\newlinePrimer','Contr.\newlineTarget',...
-%     'freq.\newlinePrimer', 'freq.\newlineTarget', 'Visual\newlineSim.', 'Error'});
+xticks(1:24);
+xticklabels({'Man.\newlineitem', 'Nat.\newlineitem', '#Phon.\newlinePrimer','#Phon.\newlineTarget', ...
+    'MovFreq.\newlinePrimer', 'MovFreq.\newlineTarget', 'AoA\newlinePrimer','AoA\newlineTarget',...
+    'Fam.\newlinePrimer','Fam.\newlineTarget',...
+    'Corr.\newlinePrimer', 'Corr.\newlineTarget',...
+    'Compact.\newlinePrimer', 'Compact.\newlineTarget', 'Ratio\newlinePrimer','Ratio\newlineTarget',...
+    'FreqEn.\newlinePrimer', 'FreqEn.\newlineTarget', 'Contr.\newlinePrimer','Contr.\newlineTarget',...
+    'freq.\newlinePrimer', 'freq.\newlineTarget', 'Visual\newlineSim.', 'Error'});
 
 %% Create the naive models (it is a long process)
-model_names = {'model_psycho', 'model_image', 'model_psycho_image'}; %Note: a naive categorical model is useless
+% model_names = {'model_psycho', 'model_image', 'model_psycho_image'}; %Note: a naive categorical model is useless
+model_names = split(config.model_names_naive,',');
 selected_regressors = {4:13,14:26,4:26}; % the regressors corresponding to each model_name
 trialinfo_filename = 'trialinfo_psycho_image'; % give the trialinfo corresponding to the complete model
 
@@ -281,9 +284,12 @@ end
 
 %% Compute corrected R2 (cf. paper figure 7)
 dinfo = dir(fullfile(PATH_TO_DERIV,'sub-*'));
-model_names = {'model_psycho', 'model_image', 'model_psycho_image'}; %Note: a corrected r2 for categorical model is useless
+% model_names = {'model_psycho', 'model_image', 'model_psycho_image'}; %Note: a corrected r2 for categorical model is useless
+model_names = split(config.model_names,',');
 for k = 1:length(model_names)
     model_name = model_names{k};
+    absolute_R2 = [];
+    naive_R2 = [];
     corrected_R2 = [];
     for i = numel( dinfo ):-1:1
         if i >= 10
@@ -292,18 +298,21 @@ for k = 1:length(model_names)
             subfolder = ['sub-00' num2str(i)];
         end
         load(fullfile(PATH_TO_DERIV,subfolder,'eeg',[model_name '_GLM_OLS_Time_Channels'],'R2.mat'))
-        R2 = R2(:,:,1);
-        corrected_R2(:,:,i) = R2;
-        load(fullfile(PATH_TO_DERIV,subfolder,'eeg',[model_name '_naive_GLM_OLS_Time_Channels'],'R2.mat'))
-        R2 = R2(:,:,1);
-        corrected_R2(:,:,i) = corrected_R2(:,:,i)-R2;
+        absolute_R2(:,:,i) = R2(:,:,1);
+        if k > 1 %Note: categorical model does not have a naive version
+            load(fullfile(PATH_TO_DERIV,subfolder,'eeg',[model_name '_naive_GLM_OLS_Time_Channels'],'R2.mat'))
+            naive_R2(:,:,i) = R2(:,:,1);
+            corrected_R2(:,:,i) = absolute_R2(:,:,i) - naive_R2(:,:,i);
+        end
     end
     if save_choice
+        save(fullfile(PATH_TO_DERIV,[model_name '_absolute_R2.mat']),'absolute_R2')
+        save(fullfile(PATH_TO_DERIV,[model_name '_naive_R2.mat']),'naive_R2')
         save(fullfile(PATH_TO_DERIV,[model_name '_corrected_R2.mat']),'corrected_R2')
     end
 end
 
-%% Find clusters of significant contrast and R2
+%% Find clusters of significant contrast and R2 (2nd level analysis)
 
 % modify Beta_files_GLM_OLS_Time_Channels.txt and con_1_files_GLM_OLS_Time_Channels files to access the desired models
 filePath = fullfile(PATH_TO_ROOT,'Beta_files_GLM_OLS_Time_Channels.txt');
@@ -311,21 +320,24 @@ fileContentsBetas = fileread(filePath);
 filePath = fullfile(PATH_TO_ROOT,'con_1_files_GLM_OLS_Time_Channels.txt');
 fileContentsCon= fileread(filePath);
 
+model_names = split(config.model_names,',');
+
 for k = 1:length(model_names)
     model_name = model_names{k};
-    % Replace the target string with the new string
-    newContents = strrep(fileContentsBetas, 'GLM_OLS_Time_Channels', [model_name "_GLM_OLS_Time_Channels"]);
+    % Replace the target string with the new string (Beta files)
+    newContents = strrep(fileContentsBetas, 'GLM_OLS_Time_Channels', sprintf("%s_GLM_OLS_Time_Channels",model_name));
     newFilePath = fullfile(PATH_TO_ROOT,['Beta_files_GLM_OLS_Time_Channels_' model_name '.txt']);
     % Write the new contents back to the file
     fid = fopen(newFilePath, 'w');
     if fid == -1
         error('Cannot open file for writing: %s', newFilePath);
     end
-    fwrite(fid, newContents);
+%     fwrite(fid, newContents);
+    fprintf(fid, '%s', newContents);
     fclose(fid);
     
     % same for con_1
-    newContents = strrep(fileContentsCon, 'GLM_OLS_Time_Channels', [model_name "_GLM_OLS_Time_Channels"]);
+    newContents = strrep(fileContentsCon, 'GLM_OLS_Time_Channels', sprintf("%s_GLM_OLS_Time_Channels",model_name));
     newFilePath = fullfile(PATH_TO_ROOT,['con_1_files_GLM_OLS_Time_Channels_' model_name '.txt']);
     % Write the new contents back to the file
     fid = fopen(newFilePath, 'w');
@@ -336,138 +348,78 @@ for k = 1:length(model_names)
     fclose(fid);
 
     cd(PATH_TO_ROOT)
-    load(fullfile(PATH_TO_DERIV,[model_name ".mat"]))
-    expected_chanlocs = limo_avg_expected_chanlocs(PATH_TO_DERIV, model.defaults);
+    load(fullfile(PATH_TO_DERIV,[model_name '.mat']))
+    expected_chanlocs = limo_avg_expected_chanlocs(PATH_TO_DERIV, model.defaults, model_name);
 
     % Categorical clusters
     my_param = 'con_1';
     LIMOfiles = fullfile(PATH_TO_ROOT,sprintf('%s_files_GLM_OLS_Time_Channels_%s.txt',my_param,model_name));
-    if ~exist(fullfile(PATH_TO_ROOT,[my_name '_' my_param]),'dir')
-        mkdir(fullfile(PATH_TO_ROOT,[my_name '_' my_param]))
+    if ~exist(fullfile(PATH_TO_ROOT,[model_name '_' my_param]),'dir')
+        mkdir(fullfile(PATH_TO_ROOT,[model_name '_' my_param]))
     end
     cd(fullfile(PATH_TO_ROOT,[model_name '_' my_param]))
     LIMOPath = limo_random_select('one sample t-test',expected_chanlocs,'LIMOfiles',... 
         LIMOfiles,'analysis_type','Full scalp analysis',...
         'type','Channels','nboot',100,'tfce',1,'skip design check','yes');
 
-    limo_results %find regions of significant contrast through clustering algo with p=0.05
+    p = 0.05;
+    MCC = 3; % TFCE
+    load('LIMO.mat')
+    [~, mask, ~] = limo_stat_values('one_sample_ttest_parameter_1.mat',p,MCC,LIMO);
     if save_choice
-        save(fullfile(PATH_TO_DERIV,['mask_' my_param '_' model_name '.mat']), 'mask')
+        save(fullfile(PATH_TO_DERIV,['mask_' model_name '.mat']), 'mask')
     end
-    
-    % R2 clusters
-    my_param = 'Beta';
-    LIMOfiles = fullfile(PATH_TO_ROOT,sprintf('%s_files_GLM_OLS_Time_Channels_%s.txt',my_param,model_name));
-    if ~exist(fullfile(PATH_TO_ROOT,[my_name '_' my_param]),'dir')
-        mkdir(fullfile(PATH_TO_ROOT,[my_name '_' my_param]))
-    end
-    cd(fullfile(PATH_TO_ROOT,[model_name '_' my_param]))
-    LIMOPath = limo_random_select('one sample t-test',expected_chanlocs,'LIMOfiles',... 
-        LIMOfiles,'analysis_type','Full scalp analysis',...
-        'type','Channels','nboot',100,'tfce',1,'skip design check','yes');
-
-    limo_results %find regions of significant contrast through clustering algo with p=0.05
-    if save_choice
-        save(fullfile(PATH_TO_DERIV,['mask_' my_param '_' model_name '.mat']), 'mask')
-    end
-    
 end
 
-%% Find cluster of significant R2
-for i = numel( dinfo ):-1:1 
-    if i >= 10
-        subfolder = ['sub-0' num2str(i)];
-    else
-        subfolder = ['sub-00' num2str(i)];
-    end
-    %load ERP
-    eeg_path = fullfile(PATH_TO_DERIV, subfolder,'eeg',[subfolder '_task-' task_name '_raw.mat']);
-    eeg = load(eeg_path);
-    eeg = eeg.(cell2mat(fieldnames(eeg)));
-    load(fullfile(PATH_TO_DERIV, subfolder,'eeg','trialinfo_psycho_image.mat'))
-    idx = find(eeg.time{1}>=-0.2 & eeg.time{1}<=0.5);
-    idx = [idx(1)-1 idx idx(end)+1];
-    
-    idxMan = find(trialinfo.condition==1);
-    tmp = [];
-    for j = length(idxMan):-1:1
-        tmp(:,:,j) = eeg.trial{idxMan(j)}(:,idx);
-%         figure;imagesc(eeg.trial{j}(:,idx))
-    end
-    erpMan(:,:,i) = mean(tmp,3);
-    
-    idxNat = find(trialinfo.condition==2);
-    tmp = [];
-    for j = length(idxNat):-1:1
-        tmp(:,:,j) = eeg.trial{idxNat(j)}(:,idx);
-%         figure;imagesc(eeg.trial{j}(:,idx))
-    end
-    erpNat(:,:,i) = mean(tmp,3);
-%     figure;imagesc(erpMan(:,:,1))
+%% Boxplot the R2 of each model within specific clusters
+% Note: here is an example for the clusters of significant contrast found within the psycho-image
+% model. Modify it following your needs.
+model_names = split(config.model_names,','); %Note: a corrected r2 for categorical model is useless
+
+% Load the targeted mask
+my_param = 'con_1';
+model_name = '42_model_psycho_image';
+load(fullfile(PATH_TO_DERIV,['mask_' model_name '.mat'])) % load the mask
+
+TmR2 = cell(length(model_names),1);
+for k = 1:length(model_names)
+    model_name = model_names{k};
+    load(fullfile(PATH_TO_DERIV,[model_name '_absolute_R2.mat'])) % load the corresponding R2 values
+    TmR2{k} = limo_trimmed_mean(absolute_R2,20,0.05);
+    tmp = TmR2{k}(:,:,2);
+    tmp(~mask) = nan;
+    TmR2{k} = tmp(:);
+    TmR2{k} = TmR2{k}(~isnan(TmR2{k}));
 end
-%%
-% TmMan = limo_trimmed_mean(erpMan,20,0.05);
-% TmNat= limo_trimmed_mean(erpNat,20,0.05);
-% TmR2= 100*limo_trimmed_mean(complete_R2,20,0.05);
-% TmR2Control= 100*limo_trimmed_mean(control_R2,20,0.05);
-% TmR2Naive= 100*limo_trimmed_mean(naive_R2,20,0.05);
-% TmR2Psycho= 100*limo_trimmed_mean(psycho_R2,20,0.05);
-% TmR2Image= 100*limo_trimmed_mean(image_R2,20,0.05);
-% TmCon= limo_trimmed_mean(complete_con,20,0.05);
-TmR2New= limo_trimmed_mean(complete_R2,20,0.05);
-% TmR2PsychoNew= 100*limo_trimmed_mean(psycho_R2,20,0.05);
-% TmR2ImageNew= 100*limo_trimmed_mean(image_R2,20,0.05);
 
-% tmpR2Control = [];
-% tmpR2Psycho = [];
-% tmpR2Image = [];
-% my_mask = mask_control_con;
-my_mask = mask_r2_complete;
-% my_mask = mask_psycho_R2;
-% for i = numel( dinfo ):-1:1
-%     tmp = control_R2(:,:,i);
-%     tmp(~my_mask) = nan;
-% %     tmp(tmp<0) = nan;
-%     tmpR2Control(:,i) = mean(tmp(:),'omitnan');
-%     tmp = psycho_R2(:,:,i);
-%     tmp(~my_mask) = nan;
-% %     tmp(tmp<0) = nan;
-%     tmpR2Psycho(:,i) = mean(tmp(:),'omitnan');
-%     tmp = image_R2(:,:,i);
-%     tmp(~my_mask) = nan;
-% %     tmp(tmp<0) = nan;
-%     tmpR2Image(:,i) = mean(tmp(:),'omitnan');
-% end
-tmp = TmR2Control(:,:,2);
-tmp(~my_mask) = nan;
-tmpR2Control = tmp(:);
-% tmp = TmR2PsychoNew(:,:,2);
-tmp = one_sample(:,:,1)*100;
-tmp(~my_mask) = nan;
-tmpR2Psycho = tmp(:);
-% tmp = TmR2ImageNew(:,:,2);
-tmp = one_sample(:,:,1)*100;
-tmp(~my_mask) = nan;
-tmpR2Image = tmp(:);
+for k = length(model_names)+2:2*length(model_names)
+    model_name = model_names{k-length(model_names)};
+    load(fullfile(PATH_TO_DERIV,[model_name '_naive_R2.mat'])) % load the corresponding R2 values
+    TmR2{k} = limo_trimmed_mean(naive_R2,20,0.05);
+    tmp = TmR2{k}(:,:,2);
+    tmp(~mask) = nan;
+    TmR2{k} = tmp(:);
+    TmR2{k} = TmR2{k}(~isnan(TmR2{k}));
+end
 
-tmpR2Control = tmpR2Control(~isnan(tmpR2Control));
-tmpR2Psycho = tmpR2Psycho(~isnan(tmpR2Psycho));
-% tmpR2Psycho(tmpR2Psycho<0) = nan;
-tmpR2Image = tmpR2Image(~isnan(tmpR2Image));
-% tmpR2Image(tmpR2Image<0) = nan;
-
-target_group = [tmpR2Control, tmpR2Psycho, tmpR2Image];
-% target_group = unthreshMap(my_mask>0);
+target_group = []; % Initialize an empty array
+for i = 1:length(TmR2)
+    target_group = [target_group, TmR2{i}]; % Concatenate each element
+end
 isout = isoutlier(target_group,'quartiles');
 xClean = target_group;
 xClean(isout) = NaN;
 figure;boxplot(xClean)
+xticks([1,2.25,3.5,4.75,6,7.25,8.5]*0.85)
+xticklabels({'categorial', 'psycho', 'image', 'psycho-image', 'naive-psycho', 'naive-image', 'naive-psycho-image'})
+fontSize = 10;
+title(sprintf("Explained variance by model\n(R^2 values)"),'FontSize',fontSize)
 [est,HDI]=data_plot(xClean,'estimator','trimmed mean'); % test with estimator 
-xticks([1,2.25,3.5])
-xticklabels({'categorial', 'psycho', 'image'})
-% title(sprintf("Explained variance by model\n(R^2 values)"),'FontSize',fontSize)
-% ylim([0 0.25])
-
+xticks([1,2.25,3.5,4.75,6,7.25,8.5]*0.85)
+xticklabels({'categorial', 'psycho', 'image', 'psycho-image', 'naive-psycho', 'naive-image', 'naive-psycho-image'})
+fontSize = 10;
+title(sprintf("Explained variance by model\n(R^2 values)"),'FontSize',fontSize)
+    
 %% Plot R2 trimmed mean
 % TmR2New = TmR2New*100;
 colorOrder = get(gca,'colororder');

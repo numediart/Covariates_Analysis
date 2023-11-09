@@ -2,8 +2,9 @@
 
 
 {
-	"model_name" 			: "new_model_psycho",
-	"save_choice" 			: false,
+	"model_names"		 	: "42_model_cat,42_model_psycho,42_model_image,42_model_psycho_image",
+	"model_names_naive" 	: "42_model_psycho,42_model_image,42_model_psycho_image",
+	"save_choice" 			: true,
 	"SOURCE_ANALYSIS" 		: false,
 	"task_name" 			: "semanticPriming",
 	"datatype"				: "bdf",
@@ -33,25 +34,10 @@
 	"trial_end" 			: 500,
 	"comment_trial" 		: "in ms",
 
-
-	"n_subjects"			: 20,
-	"n_dipoles" 			: 3,
-	"n_trials" 				: 200,
-	"n_artifacts"			: 400,
 	"fsample"				: 2048,
-	"session_duration"		: 10,
-	"comment_session_dur"	: "in minutes",
-	"pseudo_length"			: 1,
-	"comment_pseudo_length" : "in seconds",
-	"event"					: "",
 
 	"atlas"					: "template/atlas.mat",
-	"dipoles_selection" 	: "",
-	"avoid_2nd_neighb" 		: true,
-
 	"headmodel"				: "template/vol.mat",
 	"elec"					: "template/elec.mat",
-	"channels"				: "[1:64]",
-
-	"reconstr_source" 		: "template/reconstr_source"
+	"channels"				: "[1:64]"
 }
