@@ -86,11 +86,11 @@ selected_regressors = {[],4:13,14:26,4:26}; % the regressors corresponding to ea
 Different models cat be created depending on the confounder types you want to study. To perform the same analysis as proposed here, you should have at least 2 different types of confounders (here, psycho-linguistic variables and image features).
 
 The models should be defined in the following order:
-- 1) model for categorical variables (no confounder)
-- 2) model for 1st confounder type
+- (1) model for categorical variables (no confounder)
+- (2) model for 1st confounder type
 - ...
-- n+1) model for nth confounder type
-- last) model with all the confounders
+- (n+1) model for nth confounder type
+- (last) model with all the confounders
 
 This step creates a design matrix for each subject looking like the following figure:
 ![Design Matrix](images/design_matrix.jpg)
