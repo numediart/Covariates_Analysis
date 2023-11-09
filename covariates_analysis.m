@@ -369,6 +369,39 @@ for k = 1:length(model_names)
     if save_choice
         save(fullfile(PATH_TO_DERIV,['mask_' model_name '.mat']), 'mask')
     end
+    
+    % R2 (explained variance) clusters
+    my_param = 'R2';
+    if ~exist(fullfile(PATH_TO_ROOT,[model_name '_' my_param]),'dir')
+        mkdir(fullfile(PATH_TO_ROOT,[model_name '_' my_param]))
+    end
+    cd(fullfile(PATH_TO_ROOT,[model_name '_' my_param]))
+    LIMO.dir = pwd;
+    LIMO.data.data_dir = pwd;
+    LIMO.design.method = 'Trimmed Mean';
+    LIMO.design.tfce = 0;
+    LIMO.design.bootstrap = 100;
+    
+    load(fullfile(PATH_TO_DERIV,[model_name '_absolute_R2.mat'])) % load the corresponding R2 values
+    if k > 1 % no naive model for categorical model
+        load(fullfile(PATH_TO_DERIV,[model_name '_naive_R2.mat'])) % load the corresponding R2 values
+        limo_random_robust(3,absolute_R2,naive_R2,1,LIMO) % perform the t-test
+    else
+        limo_random_robust(1,absolute_R2,1,LIMO) % perform the t-test
+    end
+
+    p = 0.05;
+    MCC = 2; % MCC
+    load('LIMO.mat')
+    if k > 1 % no naive model for categorical model
+        [~, mask, ~] = limo_stat_values('paired_samples_ttest_parameter_1.mat',p,MCC,LIMO);
+    else
+        [~, mask, ~] = limo_stat_values('one_sample_ttest_parameter_1.mat',p,MCC,LIMO);
+    end
+    if save_choice
+        save(fullfile(PATH_TO_DERIV,['mask_R2_' model_name '.mat']), 'mask')
+    end
+   
 end
 
 %% Boxplot the R2 of each model within specific clusters
