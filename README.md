@@ -126,9 +126,29 @@ With the 2 first rows representing the categories and the rest being the confoun
 
 By the same process, naive models are created to further analyze the effect of the increase of dimensionality (cf. paper).
 
-### 4. Linear Modeling
-Using the design matrices and the LIMO EEG toolbox, we perform the linear modeling of the EEG data (1st level analysis) through:
+### 4. Linear Modeling (1st level avalysis)
+Using the design matrices and the LIMO EEG toolbox, we perform the linear modeling of the EEG data through:
 ```
 [LIMO_files, procstatus] = limo_batch(option,model,contrast);
+```
+
+### 5. Statistical Analysis (2nd level analysis)
+The regions of high categorical contrast and high explained variance are identified using the 2nd level analysis provided by the LIMO EEG toolbox:
+```
+% categorical contrast
+LIMOPath = limo_random_select('one sample t-test',expected_chanlocs,'LIMOfiles',... 
+    LIMOfiles,'analysis_type','Full scalp analysis',...
+    'type','Channels','nboot',100,'tfce',1,'skip design check','yes');
+p = 0.05;
+MCC = 3; % TFCE
+load('LIMO.mat')
+[~, mask, ~] = limo_stat_values('one_sample_ttest_parameter_1.mat',p,MCC,LIMO);
+
+% explained variance
+limo_random_robust(3,absolute_R2,naive_R2,1,LIMO) % perform the t-test
+p = 0.05;
+MCC = 2; % MCC
+load('LIMO.mat')
+[~, mask, ~] = limo_stat_values('paired_samples_ttest_parameter_1.mat',p,MCC,LIMO);
 ```
 
