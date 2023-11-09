@@ -13,6 +13,34 @@ All descriptions and computations of covariates related to image visual features
 
 If you want to run the code as it is, you should download the corresponding dataset from [Zenodo](https://zenodo.org/records/7298746#.Y2kKIXbMK3A)
 
+### Fit BIDS format
+The provided code reads data following the [BIDS format](https://bids.neuroimaging.io/index.html).
+Edit your dataset to fit this format. Example:
+```
+/
+├── dataset_description.json
+├── participants.tsv
+├── README
+├── CHANGES
+├── sub-001
+│   └── eeg
+│       ├── sub-001_task-xxx_eeg.bdf
+│       ├── sub-001_task-xxx_eeg.json
+│       └── sub-001_task-xxx_events.tsv
+├── sub-002
+├── ...
+├── derivatives
+│   └── preproc_and_segment
+│       ├── dataset_description.json
+│       ├── sub-001
+│       │   └── eeg
+│       │       ├── sub-001_preprocessed.mat
+│       │       ├── sub-001_timelock.mat
+│       │       └── sub-001_timelock.json
+│       ├── sub-002
+│       └── ...
+```
+
 ## Tutorial
 ### 1. Configuration of the study
 Adapt the config.json file to your data.
