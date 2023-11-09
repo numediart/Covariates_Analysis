@@ -96,3 +96,11 @@ This step creates a design matrix for each subject looking like the following fi
 ![Design Matrix](images/design_matrix.jpg)
 With the 2 first rows representing the categories and the rest being the confounder values.
 
+By the same process, naive models are created to further analyze the effect of the increase of dimensionality (cf. paper).
+
+### 4. Linear Modeling
+Using the design matrices and the LIMO EEG toolbox, we perform the linear modeling of the EEG data (1st level analysis) through:
+```
+[LIMO_files, procstatus] = limo_batch(option,model,contrast);
+```
+
