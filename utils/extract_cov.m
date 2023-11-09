@@ -226,7 +226,6 @@ for im = 1:n
 
     centroidDist = pdist2(centroid,centroid);
     maxClusterDist(im) = max(centroidDist(:));
-
 end
 
 imageFeatures = struct('name',{img_name},'entropyValue',entropyValue,'contrastValue',contrastValue,'correlationValue',correlationValue,...

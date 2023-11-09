@@ -101,7 +101,6 @@ for subj_name = subj
     end
     
     trialinfo = struct2table(trialinfo);
-    
     if config.save_choice
         trialinfo_filename = 'trialinfo_psycho_image.mat';
         save(fullfile(config.BIDS_FOLDER,'derivatives',subj_name, 'eeg',trialinfo_filename),'trialinfo');
@@ -158,7 +157,6 @@ for subj_name = subj
     for k = 4:15 % it has to be adapted following your model
         trialinfo = removevars(trialinfo,f(k));
     end
-    
     if config.save_choice
         trialinfo_filename = 'trialinfo_image.mat';
 %         trialinfo_filename = 'new_image_trialinfo.mat';
