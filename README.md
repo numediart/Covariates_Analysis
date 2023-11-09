@@ -13,6 +13,34 @@ All descriptions and computations of covariates related to image visual features
 
 If you want to run the code as it is, you should download the corresponding dataset from [Zenodo](https://zenodo.org/records/7298746#.Y2kKIXbMK3A)
 
+### Fit BIDS format
+The provided code reads data following the [BIDS format](https://bids.neuroimaging.io/index.html).
+Edit your dataset to fit this format. Example:
+```
+/
+├── dataset_description.json
+├── participants.tsv
+├── README
+├── CHANGES
+├── sub-001
+│   └── eeg
+│       ├── sub-001_task-xxx_eeg.bdf
+│       ├── sub-001_task-xxx_eeg.json
+│       └── sub-001_task-xxx_events.tsv
+├── sub-002
+├── ...
+├── derivatives
+│   └── preproc_and_segment
+│       ├── dataset_description.json
+│       ├── sub-001
+│       │   └── eeg
+│       │       ├── sub-001_preprocessed.mat
+│       │       ├── sub-001_timelock.mat
+│       │       └── sub-001_timelock.json
+│       ├── sub-002
+│       └── ...
+```
+
 ## Tutorial
 ### 1. Configuration of the study
 Adapt the config.json file to your data.
@@ -86,13 +114,41 @@ selected_regressors = {[],4:13,14:26,4:26}; % the regressors corresponding to ea
 Different models cat be created depending on the confounder types you want to study. To perform the same analysis as proposed here, you should have at least 2 different types of confounders (here, psycho-linguistic variables and image features).
 
 The models should be defined in the following order:
-- 1) model for categorical variables (no confounder)
-- 2) model for 1st confounder type
+- (1) model for categorical variables (no confounder)
+- (2) model for 1st confounder type
 - ...
-- n+1) model for nth confounder type
-- last) model with all the confounders
+- (n+1) model for nth confounder type
+- (last) model with all the confounders
 
 This step creates a design matrix for each subject looking like the following figure:
 ![Design Matrix](images/design_matrix.jpg)
 With the 2 first rows representing the categories and the rest being the confounder values.
+
+By the same process, naive models are created to further analyze the effect of the increase of dimensionality (cf. paper).
+
+### 4. Linear Modeling (1st level avalysis)
+Using the design matrices and the LIMO EEG toolbox, we perform the linear modeling of the EEG data through:
+```
+[LIMO_files, procstatus] = limo_batch(option,model,contrast);
+```
+
+### 5. Statistical Analysis (2nd level analysis)
+The regions of high categorical contrast and high explained variance are identified using the 2nd level analysis provided by the LIMO EEG toolbox:
+```
+% categorical contrast
+LIMOPath = limo_random_select('one sample t-test',expected_chanlocs,'LIMOfiles',... 
+    LIMOfiles,'analysis_type','Full scalp analysis',...
+    'type','Channels','nboot',100,'tfce',1,'skip design check','yes');
+p = 0.05;
+MCC = 3; % TFCE
+load('LIMO.mat')
+[~, mask, ~] = limo_stat_values('one_sample_ttest_parameter_1.mat',p,MCC,LIMO);
+
+% explained variance
+limo_random_robust(3,absolute_R2,naive_R2,1,LIMO) % perform the t-test
+p = 0.05;
+MCC = 2; % MCC
+load('LIMO.mat')
+[~, mask, ~] = limo_stat_values('paired_samples_ttest_parameter_1.mat',p,MCC,LIMO);
+```
 
