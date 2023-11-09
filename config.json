@@ -2,8 +2,8 @@
 
 
 {
-	"model_names"		 	: "42_model_cat,42_model_psycho,42_model_image,42_model_psycho_image",
-	"model_names_naive" 	: "42_model_psycho,42_model_image,42_model_psycho_image",
+	"model_names"		 	: "model_cat,model_psycho,model_image,model_psycho_image",
+	"model_names_naive" 	: "model_psycho,model_image,model_psycho_image",
 	"save_choice" 			: true,
 	"SOURCE_ANALYSIS" 		: false,
 	"task_name" 			: "semanticPriming",

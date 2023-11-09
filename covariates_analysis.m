@@ -374,32 +374,45 @@ end
 %% Boxplot the R2 of each model within specific clusters
 % Note: here is an example for the clusters of significant contrast found within the psycho-image
 % model. Modify it following your needs.
+
+% /!\ IMPORTANT /!\ "psycho-image" - "image" = "psycho" (cf. paper figure 9)
+
 model_names = split(config.model_names,','); %Note: a corrected r2 for categorical model is useless
 
 % Load the targeted mask
 my_param = 'con_1';
-model_name = '42_model_psycho_image';
+model_name = model_names{end};
 load(fullfile(PATH_TO_DERIV,['mask_' model_name '.mat'])) % load the mask
 
-TmR2 = cell(length(model_names),1);
-for k = 1:length(model_names)
-    model_name = model_names{k};
-    load(fullfile(PATH_TO_DERIV,[model_name '_absolute_R2.mat'])) % load the corresponding R2 values
-    TmR2{k} = limo_trimmed_mean(absolute_R2,20,0.05);
-    tmp = TmR2{k}(:,:,2);
+% TmR2 = cell(length(model_names),1);
+TmR2 = cell(0);
+load(fullfile(PATH_TO_DERIV,[model_names{end} '_absolute_R2.mat'])) % load R2 values of the complete model
+R2_all_cov = absolute_R2;
+for k = 1:length(model_names)-1
+    load(fullfile(PATH_TO_DERIV,[model_names{k} '_absolute_R2.mat'])) % load the corresponding R2 values
+    if k > 1 % no need to subtract for categorical model
+        R2 = R2_all_cov - absolute_R2;
+        TmR2{end+1} = limo_trimmed_mean(R2,20,0.05);
+    else
+        TmR2{end+1} = limo_trimmed_mean(absolute_R2,20,0.05);
+    end
+    tmp = TmR2{end}(:,:,2);
     tmp(~mask) = nan;
-    TmR2{k} = tmp(:);
-    TmR2{k} = TmR2{k}(~isnan(TmR2{k}));
+    TmR2{end} = tmp(:);
+    TmR2{end} = TmR2{end}(~isnan(TmR2{end}));
 end
 
-for k = length(model_names)+2:2*length(model_names)
+load(fullfile(PATH_TO_DERIV,[model_names{end} '_naive_R2.mat'])) % load R2 values of the complete model
+R2_all_cov = naive_R2;
+for k = length(model_names)+2:2*length(model_names)-1
     model_name = model_names{k-length(model_names)};
     load(fullfile(PATH_TO_DERIV,[model_name '_naive_R2.mat'])) % load the corresponding R2 values
-    TmR2{k} = limo_trimmed_mean(naive_R2,20,0.05);
-    tmp = TmR2{k}(:,:,2);
+    R2 = R2_all_cov - naive_R2;
+    TmR2{end+1} = limo_trimmed_mean(R2,20,0.05);
+    tmp = TmR2{end}(:,:,2);
     tmp(~mask) = nan;
-    TmR2{k} = tmp(:);
-    TmR2{k} = TmR2{k}(~isnan(TmR2{k}));
+    TmR2{end} = tmp(:);
+    TmR2{end} = TmR2{end}(~isnan(TmR2{end}));
 end
 
 target_group = []; % Initialize an empty array
@@ -410,13 +423,52 @@ isout = isoutlier(target_group,'quartiles');
 xClean = target_group;
 xClean(isout) = NaN;
 figure;boxplot(xClean)
-xticks([1,2.25,3.5,4.75,6,7.25,8.5]*0.85)
-xticklabels({'categorial', 'psycho', 'image', 'psycho-image', 'naive-psycho', 'naive-image', 'naive-psycho-image'})
+xticks([1,2,3,4,5])
+xticklabels({'categorial', 'image', 'psycho', 'naive-image', 'naive-psycho'})
 fontSize = 10;
 title(sprintf("Explained variance by model\n(R^2 values)"),'FontSize',fontSize)
 [est,HDI]=data_plot(xClean,'estimator','trimmed mean'); % test with estimator 
-xticks([1,2.25,3.5,4.75,6,7.25,8.5]*0.85)
-xticklabels({'categorial', 'psycho', 'image', 'psycho-image', 'naive-psycho', 'naive-image', 'naive-psycho-image'})
+xticks([1,2.25,3.5,4.75,6])
+xticklabels({'categorial', 'image', 'psycho', 'naive-image', 'naive-psycho'})
 fontSize = 10;
 title(sprintf("Explained variance by model\n(R^2 values)"),'FontSize',fontSize)
+
+%% Quantify the separability (cf. paper figure 9)
+R2_losses = cell(0);
+% Here is the example of the R2 loss between categories and psycho
+% covariates. Adapt it to your data.
+
+% 1) "computed" psycho effect
+load(fullfile(PATH_TO_DERIV,[model_names{end} '_absolute_R2.mat'])) % load R2 values of the psycho-image model
+R2_all_cov = absolute_R2;
+load(fullfile(PATH_TO_DERIV,[model_names{3} '_absolute_R2.mat'])) % load R2 values of the image model
+R2_computed_psycho = R2_all_cov - absolute_R2;
+
+% 2) "computed" categorical effect
+load(fullfile(PATH_TO_DERIV,[model_names{2} '_absolute_R2.mat'])) % load R2 values of the psycho model
+R2_computed_cat = absolute_R2 - R2_computed_psycho;
+
+% 3) R2 loss
+load(fullfile(PATH_TO_DERIV,[model_names{1} '_absolute_R2.mat'])) % load R2 values of the categorical model
+R2_loss = absolute_R2 - R2_computed_cat;
+
+R2_losses{end+1} = R2_loss;
+
+% Same for the R2 loss between categories and image covariates
+% 1) "computed" image effect
+load(fullfile(PATH_TO_DERIV,[model_names{end} '_absolute_R2.mat'])) % load R2 values of the psycho-image model
+R2_all_cov = absolute_R2;
+load(fullfile(PATH_TO_DERIV,[model_names{2} '_absolute_R2.mat'])) % load R2 values of the psycho model
+R2_computed_image = R2_all_cov - absolute_R2;
+
+% 2) "computed" categorical effect
+load(fullfile(PATH_TO_DERIV,[model_names{3} '_absolute_R2.mat'])) % load R2 values of the image model
+R2_computed_cat = absolute_R2 - R2_computed_image;
+
+% 3) R2 loss
+load(fullfile(PATH_TO_DERIV,[model_names{1} '_absolute_R2.mat'])) % load R2 values of the categorical model
+R2_loss = absolute_R2 - R2_computed_cat;
+
+R2_losses{end+1} = R2_loss;
+
 end
