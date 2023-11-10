@@ -20,21 +20,18 @@
 	"PATH_TO_IMAGES" 		: "D:/_ARC-images/ARC_tache_Final/300x300",
 	"PATH_TO_SIMILARITY" 	: "utils/visual_similarity.csv",
 	"PATH_TO_ITEMS" 		: "utils/items_description.csv",
+	"cov_description" 		: "utils/continuous_variables.csv",
+	"comment_cov_descript." : "give the path to the csv file containing the values of the studied confounders",	
 
 	"trial_function" 		: "SenSem_trialfun_trial",
 	"comment_trial_function": "replace with the desired trial function (cf. FieldTrip doc)",
-	"cov_description" 		: "utils/continuous_variables.csv",
-	"comment_cov_descript." : "give the path to the csv file containing the values of the studied confounders",	
 	"trialdef_eventtype"	: "STATUS",
 	"trialdef_eventvalue" 	: [10, 11, 12],
 	"trialdef_prestim"		: 0.5,
 	"trialdef_poststim"		: 1,
-
 	"trial_start" 			: -200,
 	"trial_end" 			: 500,
 	"comment_trial" 		: "in ms",
-
-	"fsample"				: 2048,
 
 	"atlas"					: "template/atlas.mat",
 	"headmodel"				: "template/vol.mat",
