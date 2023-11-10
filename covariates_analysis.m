@@ -5,8 +5,10 @@ function [R2_losses] = covariates_analysis(config_file)
 Created by Luca La Fisca
 ISIA Lab, Faculty of Engineering University of Mons, Mons (Belgium)
 luca.lafisca@umons.ac.be
-Source: La Fisca et al, "Explainable AI for EEG Biomarkers Identification in Obstructive Sleep Apnea Severity Scoring Task", NER 2023.
-Copyright (C) 2023 - UMons
+Source: La Fisca et. al., "Biases in BCI Experiments: Do we really need to 
+balance stimulus properties across categories?", Frontiers in Computational
+Neuroscience, Volume 16, Pages 153-172, 22 November 2022
+Copyright (C) 2022 - UMons
 This library is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
 License as published by the Free Software Foundation; either
