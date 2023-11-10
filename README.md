@@ -129,6 +129,8 @@ By the same process, naive models are created to further analyze the effect of t
 ### 4. Linear Modeling (1st level avalysis)
 Using the design matrices and the LIMO EEG toolbox, we perform the linear modeling of the EEG data through:
 ```
+contrast.mat = [1 -1 0]; % 1st column vs. 2nd column
+option = 'both'; % model both the categories (contrast) and the confounders
 [LIMO_files, procstatus] = limo_batch(option,model,contrast);
 ```
 
@@ -136,6 +138,8 @@ Using the design matrices and the LIMO EEG toolbox, we perform the linear modeli
 The regions of high categorical contrast and high explained variance are identified using the 2nd level analysis provided by the LIMO EEG toolbox:
 ```
 % categorical contrast
+my_param = 'con_1';
+LIMOfiles = fullfile(PATH_TO_ROOT,sprintf('%s_files_GLM_OLS_Time_Channels_%s.txt',my_param,model_name));
 LIMOPath = limo_random_select('one sample t-test',expected_chanlocs,'LIMOfiles',... 
     LIMOfiles,'analysis_type','Full scalp analysis',...
     'type','Channels','nboot',100,'tfce',1,'skip design check','yes');
@@ -152,3 +156,43 @@ load('LIMO.mat')
 [~, mask, ~] = limo_stat_values('paired_samples_ttest_parameter_1.mat',p,MCC,LIMO);
 ```
 
+For each cluster of significant contrast, we compute the trimmed mean of the corrected R2 values obtained by combination between models:
+```
+load(fullfile(PATH_TO_DERIV,['mask_' model_name '.mat'])) % load the targeted mask
+TmR2 = cell(0);
+load(fullfile(PATH_TO_DERIV,[model_names{end} '_absolute_R2.mat'])) % load R2 values of the complete model
+R2_all_cov = absolute_R2;
+for k = 1:length(model_names)-1
+    load(fullfile(PATH_TO_DERIV,[model_names{k} '_absolute_R2.mat'])) % load the corresponding R2 values
+    if k > 1 % no need to subtract for categorical model
+        R2 = R2_all_cov - absolute_R2;
+        TmR2{end+1} = limo_trimmed_mean(R2,20,0.05);
+    else
+        TmR2{end+1} = limo_trimmed_mean(absolute_R2,20,0.05);
+    end
+    tmp = TmR2{end}(:,:,2);
+    tmp(~mask) = nan;
+    TmR2{end} = tmp(:);
+    TmR2{end} = TmR2{end}(~isnan(TmR2{end}));
+end
+```
+
+### Effects Separability
+Finally, by combining the explained variance of different models, as explained in Figure 9 of our paper, we can retrieve the loss in explained variance that is due to the correlation between the confounders and the categories (R2_loss):
+```
+% Here is the example of the R2 loss between categories and psycho covariates. Adapt it to your data.
+
+% 1) "computed" psycho effect
+load(fullfile(PATH_TO_DERIV,[model_names{end} '_absolute_R2.mat'])) % load R2 values of the psycho-image model
+R2_all_cov = absolute_R2;
+load(fullfile(PATH_TO_DERIV,[model_names{3} '_absolute_R2.mat'])) % load R2 values of the image model
+R2_computed_psycho = R2_all_cov - absolute_R2;
+
+% 2) "computed" categorical effect
+load(fullfile(PATH_TO_DERIV,[model_names{2} '_absolute_R2.mat'])) % load R2 values of the psycho model
+R2_computed_cat = absolute_R2 - R2_computed_psycho;
+
+% 3) R2 loss
+load(fullfile(PATH_TO_DERIV,[model_names{1} '_absolute_R2.mat'])) % load R2 values of the categorical model
+R2_loss = absolute_R2 - R2_computed_cat;
+```
