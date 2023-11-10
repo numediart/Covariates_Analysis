@@ -180,7 +180,7 @@ end
 You can therefore display the boxplot of the explained variance of each and compare it to the naive models to consider the effect of increasing the dimensionality of the model, like in the following figure:
 ![Explained Variance Distribution](images/boxplot_R2_distribution.png)
 
-### Effects Separability
+### 6. Effects Separability
 Finally, by combining the explained variance of different models, as explained in Figure 9 of our paper, we can retrieve the loss in explained variance that is due to the correlation between the confounders and the categories (R2_loss):
 ```
 % Here is the example of the R2 loss between categories and psycho covariates. Adapt it to your data.
