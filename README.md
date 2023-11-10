@@ -177,6 +177,9 @@ for k = 1:length(model_names)-1
 end
 ```
 
+You can therefore display the boxplot of the explained variance of each and compare it to the naive models to consider the effect of increasing the dimensionality of the model, like in the following figure:
+![Explained Variance Distribution](images/boxplot_R2_distribution.png)
+
 ### Effects Separability
 Finally, by combining the explained variance of different models, as explained in Figure 9 of our paper, we can retrieve the loss in explained variance that is due to the correlation between the confounders and the categories (R2_loss):
 ```
@@ -196,3 +199,5 @@ R2_computed_cat = absolute_R2 - R2_computed_psycho;
 load(fullfile(PATH_TO_DERIV,[model_names{1} '_absolute_R2.mat'])) % load R2 values of the categorical model
 R2_loss = absolute_R2 - R2_computed_cat;
 ```
+
+If the R2 loss of the model is high, relatively to the explained variance of the categorical model, the effect of the corresponding confounders cannot be separated from the categorical effect. Therefore, the confounders should be balanced across categories. If not, this balance is not necessary.
