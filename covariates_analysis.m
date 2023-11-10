@@ -1,6 +1,27 @@
 function [R2_losses] = covariates_analysis(config_file)
 %% Covariates Analysis
 
+%{
+Created by Luca La Fisca
+ISIA Lab, Faculty of Engineering University of Mons, Mons (Belgium)
+luca.lafisca@umons.ac.be
+Source: La Fisca et al, "Explainable AI for EEG Biomarkers Identification in Obstructive Sleep Apnea Severity Scoring Task", NER 2023.
+Copyright (C) 2023 - UMons
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+This library cannot be used for commercial use without the agreement of the
+author (Luca La Fisca).
+%}
+
 %% (DATA SPECIFIC) Set paths and variable names
 %read config file
 if ~exist('config_file', 'var')
